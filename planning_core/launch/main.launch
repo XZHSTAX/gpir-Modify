@@ -1,0 +1,62 @@
+<launch>
+
+  <!-- 同时启动carla和planning -->
+  <!-- Common arguments that can be adjusted -->
+  <!-- Town configuration -->
+  <arg name="town_name" default="Town05"/>
+  <arg name="map_path" default="$(find hdmap)/maps/"/>
+  
+  <!-- CARLA connection parameters -->
+  <arg name="host" default="localhost"/>
+  <arg name="port" default="2000"/>
+  <arg name="timeout" default="10"/>
+  
+  <!-- Vehicle configuration -->
+  <arg name="role_name" default="ego_vehicle"/>
+  <arg name="vehicle_filter" default="vehicle.*"/>
+  
+  <!-- Spawn points for different towns -->
+  <!-- Town05 spawn point -->
+  <arg name="spawn_point_town05" default="73.44,-205.43,1,0,0,0.28"/>
+  <!-- Town04 spawn point -->
+  <!-- <arg name="spawn_point_town04" default="-270.7,-9.08,2.52,0,-1.91,-179.9"/> -->
+  <arg name="spawn_point_town04" default="-9.8,214.1,2.52,0,0,-90"/>
+
+  <!-- Town06 spawn point -->
+  <arg name="spawn_point_town06" default="516.23,17.41,1,0,0,-179.87"/>
+  
+  <!-- Select spawn point based on town -->
+  <arg name="spawn_point" default="$(arg spawn_point_town05)" if="$(eval arg('town_name') == 'Town05')"/>
+  <arg name="spawn_point" default="$(arg spawn_point_town04)" if="$(eval arg('town_name') == 'Town04')"/>
+  <arg name="spawn_point" default="$(arg spawn_point_town06)" if="$(eval arg('town_name') == 'Town06')"/>
+  
+  <!-- CARLA simulation parameters -->
+  <arg name="passive" default=""/>
+  <arg name="synchronous_mode_wait_for_vehicle_control_command" default="False"/>
+  <arg name="fixed_delta_seconds" default="0.02"/>
+  
+  <!-- Simulator type -->
+  <arg name="simulator" default="Carla"/>
+  
+  <!-- Launch CARLA setup -->
+  <include file="$(find planning_core)/launch/carla_setup.launch">
+    <arg name="host" value="$(arg host)"/>
+    <arg name="port" value="$(arg port)"/>
+    <arg name="timeout" value="$(arg timeout)"/>
+    <arg name="role_name" value="$(arg role_name)"/>
+    <arg name="vehicle_filter" value="$(arg vehicle_filter)"/>
+    <arg name="town" value="$(arg map_path)opendrive/$(arg town_name).xodr"/>
+    <arg name="spawn_point" value="$(arg spawn_point)"/>
+    <arg name="passive" value="$(arg passive)"/>
+    <arg name="synchronous_mode_wait_for_vehicle_control_command" value="$(arg synchronous_mode_wait_for_vehicle_control_command)"/>
+    <arg name="fixed_delta_seconds" value="$(arg fixed_delta_seconds)"/>
+  </include>
+  
+  <!-- Launch planning -->
+  <include file="$(find planning_core)/launch/planning.launch">
+    <arg name="map_path" value="$(arg map_path)"/>
+    <arg name="town" value="$(arg town_name)"/>
+    <arg name="simulator" value="$(arg simulator)"/>
+  </include>
+  
+</launch>
