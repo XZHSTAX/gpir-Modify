@@ -63,6 +63,7 @@
     <arg name="map_path" value="$(arg map_path)"/>
     <arg name="town" value="$(arg town_name)"/>
     <arg name="simulator" value="$(arg simulator)"/>
+    <arg name="ego_vehicle_name" value="$(arg role_name)"/>
   </include>
   
 </launch>

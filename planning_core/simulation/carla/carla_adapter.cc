@@ -20,14 +20,21 @@ namespace simulation {
 CarlaAdapter::CarlaAdapter() {}
 
 void CarlaAdapter::Init() {
-  carla_ego_info_.Init();
+  // 默认使用ego_vehicle作为车辆名称
+  Init("ego_vehicle");
+};
+
+void CarlaAdapter::Init(const std::string& ego_vehicle_name) {
+  carla_ego_info_.Init(ego_vehicle_name);
   carla_mock_perception_.Init();
 
   ros::NodeHandle node;
+  // 构建topic名称
+  std::string ackermann_topic = "carla/" + ego_vehicle_name + "/ackermann_cmd";
   control_cmd_pub_ = node.advertise<ackermann_msgs::AckermannDrive>(
-      "carla/ego_vehicle/ackermann_cmd", 1);
+      ackermann_topic, 1);
   mpc_controller_.Init();
-};
+}
 
 bool CarlaAdapter::InitVehicleParam(VehicleParam* vehicle_param) {
   for (int i = 0; i < 10 && ros::ok(); ++i) {

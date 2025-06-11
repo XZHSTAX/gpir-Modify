@@ -83,22 +83,30 @@ int main(int argc, char* argv[]) {
   ros::init(argc, argv, "carla_controller");
   ros::NodeHandle node("~");
   double kp, ki, kd;
+  std::string ego_vehicle_name;
+  
   node.getParam("kp", kp);
   node.getParam("ki", ki);
   node.getParam("kd", kd);
+  // 从参数中获取ego_vehicle名称，默认为ego_vehicle
+  node.param<std::string>("ego_vehicle_name", ego_vehicle_name, "ego_vehicle");
 
   ROS_INFO_STREAM("kp: " << kp);
   ROS_INFO_STREAM("ki: " << ki);
   ROS_INFO_STREAM("kd: " << kd);
+  ROS_INFO_STREAM("ego_vehicle_name: " << ego_vehicle_name);
+
+  // 构建topic名称
+  std::string ackermann_topic = "/carla/" + ego_vehicle_name + "/ackermann_cmd";
+  std::string status_topic = "/carla/" + ego_vehicle_name + "/vehicle_status";
+  std::string control_topic = "/carla/" + ego_vehicle_name + "/vehicle_control_cmd";
 
   ros::Publisher control_pub;
   ros::Subscriber target_sub, state_sub;
-  target_sub =
-      node.subscribe("/carla/ego_vehicle/ackermann_cmd", 1, &TargetCallBack);
-  state_sub =
-      node.subscribe("/carla/ego_vehicle/vehicle_status", 1, &StateCallBack);
+  target_sub = node.subscribe(ackermann_topic, 1, &TargetCallBack);
+  state_sub = node.subscribe(status_topic, 1, &StateCallBack);
   control_pub = node.advertise<carla_msgs::CarlaEgoVehicleControl>(
-      "/carla/ego_vehicle/vehicle_control_cmd", 1);
+      control_topic, 1);
 
   PIDController speed_controller(kp, ki, kd);
   speed_controller.SetOutputLimit(4.0, -8);

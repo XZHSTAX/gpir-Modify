@@ -23,6 +23,7 @@ class CarlaAdapter final : public SimulatorAdapter {
   CarlaAdapter();
 
   void Init() override;
+  void Init(const std::string& ego_vehicle_name);
   std::string Name() const { return "Carla"; }
   bool InitVehicleParam(VehicleParam* vehicle_param) override;
   bool UpdateEgoState(common::State* state) override;

@@ -25,7 +25,7 @@ class CarlaEgoInfo {
  public:
   CarlaEgoInfo() = default;
 
-  void Init();
+  void Init(const std::string& ego_vehicle_name = "ego_vehicle");
 
   bool GetVehicleParam(VehicleParam* vehicle_param);
 

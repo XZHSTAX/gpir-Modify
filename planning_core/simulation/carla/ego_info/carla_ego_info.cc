@@ -17,14 +17,19 @@
 namespace planning {
 namespace simulation {
 
-void CarlaEgoInfo::Init() {
+void CarlaEgoInfo::Init(const std::string& ego_vehicle_name) {
   ros::NodeHandle node;
 
-  odom_sub_ = node.subscribe("/carla/ego_vehicle/odometry", 10,
+  // 构建topic名称
+  std::string odom_topic = "/carla/" + ego_vehicle_name + "/odometry";
+  std::string status_topic = "/carla/" + ego_vehicle_name + "/vehicle_status";
+  std::string info_topic = "/carla/" + ego_vehicle_name + "/vehicle_info";
+
+  odom_sub_ = node.subscribe(odom_topic, 10,
                              &CarlaEgoInfo::CarlaOdometryCallback, this);
-  ego_status_sub_ = node.subscribe("/carla/ego_vehicle/vehicle_status", 10,
+  ego_status_sub_ = node.subscribe(status_topic, 10,
                                    &CarlaEgoInfo::CarlaEgoStatusCallback, this);
-  ego_info_sub_ = node.subscribe("/carla/ego_vehicle/vehicle_info", 10,
+  ego_info_sub_ = node.subscribe(info_topic, 10,
                                  &CarlaEgoInfo::CarlaEgoInfoCallback, this);
 
   odom_timer_.set_timeout(500);

@@ -14,6 +14,7 @@
 #include "hdmap/hdmap.h"
 #include "planning_common/planning_visual.h"
 #include "planning_core/simulation/simulator_adapter_factory.h"
+#include "planning_core/simulation/carla/carla_adapter.h"
 
 namespace planning {
 
@@ -21,12 +22,16 @@ void PlanningCore::Init() {
   ros::NodeHandle node("~");
 
   bool load_param = true;
-  std::string simulator, town, map_path;
+  std::string simulator, town, map_path, ego_vehicle_name;
   load_param &= node.getParam("simulator", simulator);
   load_param &= node.getParam("town", town);
   load_param &= node.getParam("map_path", map_path);
   load_param &= node.getParam("random_drive_mode", random_drive_mode_);
+  // 从参数中获取ego_vehicle名称，默认为ego_vehicle
+  node.param<std::string>("ego_vehicle_name", ego_vehicle_name, "ego_vehicle");
   if (!load_param) LOG(FATAL) << "fail to init param";
+
+  LOG(INFO) << "ego_vehicle_name: " << ego_vehicle_name;
 
   // init hdmap
   std::string map = map_path + town + ".txt";
@@ -37,7 +42,17 @@ void PlanningCore::Init() {
 
   // init simulator adapter
   simulator_ = simulation::SimulatorFactory::CreateSimulatorAdapter(simulator);
-  simulator_->Init();
+  // 如果是Carla模拟器，使用带参数的Init方法
+  if (simulator == "Carla") {
+    auto carla_adapter = dynamic_cast<simulation::CarlaAdapter*>(simulator_.get());
+    if (carla_adapter) {
+      carla_adapter->Init(ego_vehicle_name);
+    } else {
+      simulator_->Init();
+    }
+  } else {
+    simulator_->Init();
+  }
   if (!simulator_->InitVehicleParam(
           VehicleInfo::Instance().mutable_vehicle_param())) {
     LOG(FATAL) << "fail to init vehicle param from " << simulator_->Name();

@@ -3,6 +3,7 @@
 <arg name="map_path" default="$(find hdmap)/maps/"/>
 <arg name="town" default="Town05"/>
 <arg name="simulator" default="Carla"/>
+<arg name="ego_vehicle_name" default="ego_vehicle"/>
 
 <env name="LD_LIBRARY_PATH" value="$(env LD_LIBRARY_PATH):/$(find gp_planner)/thirdparty/gtsam-4.1rc/install/lib"/>
 <node pkg="planning_core" name="planning" type="planning" output="screen">
@@ -10,12 +11,14 @@
   <param name="simulator" value="$(arg simulator)"/>
   <param name="map_path" value="$(arg map_path)"/>
   <param name="random_drive_mode" value="true"/>
+  <param name="ego_vehicle_name" value="$(arg ego_vehicle_name)"/>
 </node>
 
 <node pkg="planning_core" name="carla_controller" type="carla_controller" >
   <param name="kp" value="3.5"/>
   <param name="ki" value="0.15"/>
   <param name="kd" value="0.4"/>
+  <param name="ego_vehicle_name" value="$(arg ego_vehicle_name)"/>
 </node>
 
 <!-- rviz -->
