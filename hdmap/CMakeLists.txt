@@ -31,7 +31,7 @@ set(ADMAP_INCLUDE_DIRS
   ${CMAKE_CURRENT_SOURCE_DIR}/thirdparty/ad_map/ad_physics/impl/include
 )
 include_directories(SYSTEM ${EIGEN3_INCLUDE_DIR})
-include_directories(${CMAKE_SOURCE_DIR}/gpir)
+include_directories(${CMAKE_SOURCE_DIR}/gpir-Modify)
 include_directories(thirdparty/ad_map/spdlog/install/include)
 
 add_subdirectory(thirdparty/ad_map)

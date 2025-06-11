@@ -19,4 +19,5 @@ target_link_libraries(gp_planner_gp PUBLIC
   planning_core::navigation
   common::smoothing
   gp_planner::initializer
+  gp_planner::sdf
 )

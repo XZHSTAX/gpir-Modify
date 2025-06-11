@@ -26,7 +26,7 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 include_directories(SYSTEM ${EIGEN3_INCLUDE_DIR})
-include_directories(${CMAKE_SOURCE_DIR}/gpir)
+include_directories(${CMAKE_SOURCE_DIR}/gpir-Modify)
 
 set(msgs_INCLUDE_DIRS ${CATKIN_DEVEL_PREFIX}/include)
 
