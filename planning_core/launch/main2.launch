@@ -3,7 +3,7 @@
   <!-- 同时启动carla，planning -->
   <!-- Common arguments that can be adjusted -->
   <!-- Town configuration -->
-  <arg name="town_name" default="Town01"/>
+  <arg name="town_name" default="Town04"/>
   <arg name="map_path" default="$(find hdmap)/maps/"/>
   
   <!-- CARLA connection parameters -->
@@ -22,7 +22,7 @@
   <arg name="spawn_point_town05" default="73.44,-205.43,1,0,0,0.28"/>
   <!-- Town04 spawn point -->
   <!-- <arg name="spawn_point_town04" default="-270.7,-9.08,2.52,0,-1.91,-179.9"/> -->
-  <arg name="spawn_point_town04" default="-9.8,214.1,2.52,0,0,-90"/>
+  <arg name="spawn_point_town04" default="-9.8,-214.1,2.52,0,0,90"/>
 
   <!-- Town06 spawn point -->
   <arg name="spawn_point_town06" default="516.23,17.41,1,0,0,-179.87"/>
