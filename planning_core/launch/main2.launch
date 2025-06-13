@@ -43,6 +43,9 @@
   <arg name="objects_definition_file" value='$(find planning_core)/simulation/carla/config/spawn_objects2.json'/>
   <!-- <arg name="objects_definition_file" default='$(find carla_spawn_objects)/config/objects2.json'/> -->
 
+  <!-- 启动键盘控制，简易版 -->
+  <include file="$(find planning_core)/launch/keyboard_simple.launch"/>
+
   <!-- Launch CARLA setup -->
   <include file="$(find planning_core)/launch/carla_setup.launch">
     <arg name="objects_definition_file" value='$(arg objects_definition_file)'/>

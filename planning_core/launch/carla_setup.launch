@@ -50,6 +50,7 @@
   </include>
 
   <node pkg="planning_core" name="carla_tf" type="carla_tf">
+    <param name="role_name" value="$(arg role_name)"/>
   </node>
 
 </launch>
