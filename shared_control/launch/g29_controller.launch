@@ -1,0 +1,3 @@
+<launch>
+  <node pkg="shared_control" type="g29_controller.py" name="g29_controller" output="screen"/>
+</launch>
