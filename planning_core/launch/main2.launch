@@ -75,5 +75,21 @@
     <arg name="simulator" value="$(arg simulator)"/>
     <arg name="ego_vehicle_name" value="$(arg role_name)"/>
   </include>
+
+  <arg name="record_file_name" default="Exp1"/>
+
+  <node pkg="rosbag" type="record" name="rosbag_record" output="screen"
+        args="-o $(find planning_core)/../../../rosrecord/$(arg record_file_name)_
+              /human_control_input
+              /carla/$(arg role_name)/vehicle_control_cmd
+              /carla/$(arg role_name)/ackermann_cmd
+              /carla/$(arg role_name)/vehicle_status
+              /carla/$(arg role_name)/vehicle_control_cmd_tmp
+              /carla/$(arg role_name)/odometry
+              /carla/objects
+              /joy
+              external_torque
+              machine_torque
+              m_position" />
   
 </launch>

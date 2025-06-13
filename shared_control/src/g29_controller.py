@@ -314,7 +314,7 @@ def main():
     初始化ROS节点和G29控制器，运行主循环
     """
     rospy.init_node("g29_controller")
-    rate = rospy.Rate(30)  # 30Hz更新频率，适合实时控制
+    rate = rospy.Rate(50)  # 30Hz更新频率，适合实时控制
     
     try:
         controller = G29Controller()
