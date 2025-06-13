@@ -106,7 +106,7 @@ int main(int argc, char* argv[]) {
   // 构建topic名称
   std::string ackermann_topic = "/carla/" + ego_vehicle_name + "/ackermann_cmd";
   std::string status_topic = "/carla/" + ego_vehicle_name + "/vehicle_status";
-  std::string control_topic = "/carla/" + ego_vehicle_name + "/vehicle_control_cmd";
+  std::string control_topic = "/carla/" + ego_vehicle_name + "/vehicle_control_cmd_tmp";
 
   ros::Publisher control_pub;
   ros::Subscriber target_sub, state_sub;

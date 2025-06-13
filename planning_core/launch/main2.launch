@@ -46,7 +46,9 @@
   <!-- 启动键盘控制，简易版 -->
   <include file="$(find planning_core)/launch/keyboard_simple.launch"/>
   <!-- 启动G29控制器 -->
-  <include file="$(find shared_control)/launch/g29_controller.launch"/>
+  <include file="$(find shared_control)/launch/g29_controller.launch">
+    <arg name="ego_vehicle_name" value="$(arg role_name)"/>
+  </include>
 
   <!-- Launch CARLA setup -->
   <include file="$(find planning_core)/launch/carla_setup.launch">
