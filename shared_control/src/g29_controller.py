@@ -39,6 +39,11 @@ class G29Controller:
             control_topic_out, CarlaEgoVehicleControl, queue_size=10
         )
         
+        # 人类控制输入发布器
+        self.human_control_pub = rospy.Publisher(
+            "/human_control_input", CarlaEgoVehicleControl, queue_size=10
+        )
+        
         # 力反馈发布器
         self.force_feedback_pub = rospy.Publisher(
             "/ff_target", ForceFeedback, queue_size=10
@@ -70,23 +75,6 @@ class G29Controller:
         rospy.loginfo(f"Initialized joystick: {self.joystick.get_name()}")
         rospy.loginfo(f"Number of axes: {self.joystick.get_numaxes()}")
         rospy.loginfo(f"Number of buttons: {self.joystick.get_numbuttons()}")
-        
-        # G29按键映射 (根据实际测试可能需要调整)
-        self.button_mapping = {
-            3: 3,   # w键对应的功能 -> G29按键3
-            1: 1,   # a键对应的功能 -> G29按键1  
-            0: 0,   # s键对应的功能 -> G29按键0
-            2: 2,   # d键对应的功能 -> G29按键2
-            23: 23  # b键对应的功能 -> G29按键23
-        }
-        
-        # 上一次按键状态，用于检测按键按下事件
-        self.prev_button_states = [False] * self.joystick.get_numbuttons()
-        
-        # 踏板和方向盘的上一次值
-        self.prev_steering = 0.0
-        self.prev_throttle = 0.0
-        self.prev_brake = 0.0
         
         rospy.loginfo(f"G29 Shared Controller initialized for vehicle: {self.ego_vehicle_name}")
         rospy.loginfo(f"Control weight alpha (human): {self.alpha:.2f}")
@@ -173,7 +161,7 @@ class G29Controller:
         """
         if self.joystick.get_numaxes() > 1:
             # G29油门踏板通常在轴1或轴2，需要根据实际情况调整
-            raw_value = self.joystick.get_axis(1)
+            raw_value = self.joystick.get_axis(2)
             # 将-1到1的范围转换为0到1
             return (1.0 - raw_value) / 2.0
         return 0.0
@@ -186,7 +174,7 @@ class G29Controller:
         """
         if self.joystick.get_numaxes() > 2:
             # G29刹车踏板通常在轴2或轴3，需要根据实际情况调整
-            raw_value = self.joystick.get_axis(2)
+            raw_value = self.joystick.get_axis(3)
             # 将-1到1的范围转换为0到1
             return (1.0 - raw_value) / 2.0
         return 0.0
@@ -268,22 +256,6 @@ class G29Controller:
         
         读取方向盘和踏板的值，与机器控制信号混合后发布最终控制命令
         """
-        steering = self.read_steering_wheel()
-        throttle = self.read_throttle_pedal()
-        brake = self.read_brake_pedal()
-        
-        # 检测显著变化时打印信息（可选）
-        if abs(steering - self.prev_steering) > 0.01:
-            rospy.logdebug(f"Human Steering: {steering:.2f}")
-            self.prev_steering = steering
-        
-        if abs(throttle - self.prev_throttle) > 0.01:
-            rospy.logdebug(f"Human Throttle: {throttle:.2f}")
-            self.prev_throttle = throttle
-        
-        if abs(brake - self.prev_brake) > 0.01:
-            rospy.logdebug(f"Human Brake: {brake:.2f}")
-            self.prev_brake = brake
         
         # 获取人类控制输入
         human_control = self.get_human_control_input()
@@ -299,6 +271,9 @@ class G29Controller:
             # 如果没有机器控制信号，只使用人类控制
             final_control = human_control
             rospy.logdebug("Using human control only (no machine signal)")
+        
+        # 发布人类控制输入信号
+        self.human_control_pub.publish(human_control)
         
         # 发布最终控制命令
         self.vehicle_control_pub.publish(final_control)
