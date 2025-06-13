@@ -50,6 +50,9 @@
     <arg name="ego_vehicle_name" value="$(arg role_name)"/>
   </include>
 
+  <!-- 启动G29力反馈 -->
+  <!-- <include file="$(find ros_g29_force_feedback)/launch/g29_feedback.launch"/> -->
+
   <!-- Launch CARLA setup -->
   <include file="$(find planning_core)/launch/carla_setup.launch">
     <arg name="objects_definition_file" value='$(arg objects_definition_file)'/>

@@ -5,6 +5,7 @@ import pygame as pg
 from sensor_msgs.msg import Joy
 from geometry_msgs.msg import PoseStamped
 from carla_msgs.msg import CarlaEgoVehicleControl
+from ros_g29_force_feedback.msg import ForceFeedback
 
 
 class G29Controller:
@@ -36,6 +37,11 @@ class G29Controller:
         control_topic_out = f"/carla/{self.ego_vehicle_name}/vehicle_control_cmd"
         self.vehicle_control_pub = rospy.Publisher(
             control_topic_out, CarlaEgoVehicleControl, queue_size=10
+        )
+        
+        # 力反馈发布器
+        self.force_feedback_pub = rospy.Publisher(
+            "/ff_target", ForceFeedback, queue_size=10
         )
         
         # 订阅机器控制信号
@@ -296,6 +302,23 @@ class G29Controller:
         
         # 发布最终控制命令
         self.vehicle_control_pub.publish(final_control)
+        
+        # 发布力反馈消息
+        self.publish_force_feedback(final_control.steer)
+    
+    def publish_force_feedback(self, steering_position):
+        """发布力反馈消息
+        
+        Args:
+            steering_position (float): 方向盘位置 (-1.0 到 1.0)
+        """
+        ff_msg = ForceFeedback()
+        ff_msg.header.stamp = rospy.Time.now()
+        ff_msg.header.frame_id = "base_link"
+        ff_msg.position = steering_position
+        ff_msg.torque = 0.8
+        
+        self.force_feedback_pub.publish(ff_msg)
     
     def update(self):
         """更新G29输入处理
