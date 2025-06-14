@@ -44,15 +44,18 @@
   <!-- <arg name="objects_definition_file" default='$(find carla_spawn_objects)/config/objects2.json'/> -->
 
   <!-- Goal point parameter for keyboard control: format "x,y,z,roll,pitch,yaw" -->
-  <arg name="goal_point" default="92.28,-178.35,1,0,0,90"/>
 
   <!-- 启动键盘控制，简易版 -->
+  <arg name="goal_point" default=""/>
   <include file="$(find planning_core)/launch/keyboard_simple.launch">
     <arg name="goal_point" value="$(arg goal_point)"/>
   </include>
+
   <!-- 启动G29控制器 -->
+  <arg name="authority_strategy" default="ConstantAlpha" />
   <include file="$(find shared_control)/launch/g29_controller.launch">
     <arg name="ego_vehicle_name" value="$(arg role_name)"/>
+    <param name="authority_strategy" value="$(arg authority_strategy)" />
   </include>
 
   <!-- 启动G29力反馈 -->

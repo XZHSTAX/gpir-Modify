@@ -6,6 +6,7 @@ from sensor_msgs.msg import Joy
 from geometry_msgs.msg import PoseStamped
 from carla_msgs.msg import CarlaEgoVehicleControl
 from ros_g29_force_feedback.msg import ForceFeedback
+from authority_allocator import AuthorityAllocator, ConstantAlphaStrategy, SteeringBasedStrategy
 
 
 class G29Controller:
@@ -25,7 +26,16 @@ class G29Controller:
         self.ego_vehicle_name = rospy.get_param('~ego_vehicle_name', 'ego_vehicle')
         
         # 共享控制权重参数 (alpha: 人类控制权重, 1-alpha: 机器控制权重)
-        self.alpha = rospy.get_param('~alpha', 0.0)  # 默认各占50%
+        self.alpha = rospy.get_param('~alpha', 0.0)  # 默认机器有完全权限
+        
+        # 初始化权限分配器
+        strategy_name = rospy.get_param('~authority_strategy', 'ConstantAlpha')
+        if strategy_name == 'SteeringBased':
+            initial_strategy = SteeringBasedStrategy()
+        else:
+            initial_strategy = ConstantAlphaStrategy(self.alpha)
+        
+        self.authority_allocator = AuthorityAllocator(initial_strategy)
         
         # ROS发布器
         self.joy_pub = rospy.Publisher("/joy", Joy, queue_size=10)
@@ -214,6 +224,33 @@ class G29Controller:
         
         return human_control
     
+    def build_authority_context(self, human_control):
+        """构建权限分配所需的上下文信息
+        
+        Args:
+            human_control (CarlaEgoVehicleControl): 人类控制输入
+            
+        Returns:
+            Dict[str, Any]: 包含各种上下文信息的字典
+        """
+        context = {
+            'human_control': human_control,
+            'machine_control': self.latest_machine_control if self.machine_control_received else None,
+            'steering_angle': human_control.steer,
+            'throttle_input': human_control.throttle,
+            'brake_input': human_control.brake,
+            'time_delta': (rospy.Time.now() - self.authority_allocator.current_strategy.last_update_time).to_sec(),
+            'machine_control_available': self.machine_control_received,
+        }
+        
+        # 可以在这里添加更多上下文信息，如：
+        # - 车辆速度（需要订阅相应话题）
+        # - 驾驶员注意力水平（需要相应传感器）
+        # - 道路曲率（需要地图信息）
+        # - 紧急情况检测（需要相应算法）
+        
+        return context
+    
     def blend_control_signals(self, human_control, machine_control, alpha):
         """混合人类和机器的控制信号
         
@@ -259,6 +296,12 @@ class G29Controller:
         
         # 获取人类控制输入
         human_control = self.get_human_control_input()
+        
+        # 构建权限分配上下文
+        context = self.build_authority_context(human_control)
+        
+        # 动态更新alpha值
+        self.alpha = self.authority_allocator.update_alpha(context)
         
         # 如果收到了机器控制信号，进行混合
         if self.machine_control_received:

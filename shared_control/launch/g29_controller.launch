@@ -2,10 +2,12 @@
   <!-- G29共享控制器参数 -->
   <arg name="ego_vehicle_name" default="ego_vehicle"/>
   <arg name="alpha" default="0.0"/>
+  <arg name="authority_strategy" default="ConstantAlpha" />
   
   <!-- 启动G29控制器节点 -->
   <node pkg="shared_control" type="g29_controller.py" name="g29_controller" output="screen">
     <param name="ego_vehicle_name" value="$(arg ego_vehicle_name)"/>
     <param name="alpha" value="$(arg alpha)"/>
+    <param name="authority_strategy" value="$(arg authority_strategy)" />
   </node>
 </launch>
