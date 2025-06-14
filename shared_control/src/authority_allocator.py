@@ -177,24 +177,16 @@ class FlexibleTransitionStrategy(AuthorityAllocationStrategy):
         self.b = b
         self.start_time = None
         self.transition_started = False
-    
-    def start_transition(self):
-        """开始权限移交过程
-        
-        设置起始时间t0为当前时间
-        """
-        self.start_time = rospy.Time.now()
-        self.transition_started = True
-        rospy.loginfo(f"Flexible transition started at time: {self.start_time.to_sec()}")
-    
+       
     def reset_transition(self):
         """重置权限移交过程
         
-        清除起始时间，停止权限移交
+        重置起始时间，开始权限移交
         """
-        self.start_time = None
-        self.transition_started = False
         rospy.loginfo("Flexible transition reset")
+        self.start_time = rospy.Time.now()
+        rospy.loginfo(f"Flexible transition started at time: {self.start_time.to_sec()}")
+        self.transition_started = True
     
     def compute_alpha(self, context: Dict[str, Any]) -> float:
         """基于时间计算权限分配系数alpha
@@ -211,13 +203,6 @@ class FlexibleTransitionStrategy(AuthorityAllocationStrategy):
         Returns:
             float: 计算得到的alpha值 (0.0-1.0)
         """
-        # 检查是否需要开始或重置权限移交
-        if context.get('start_transition', False):
-            self.start_transition()
-        
-        if context.get('reset_transition', False):
-            self.reset_transition()
-        
         # 如果还没有开始权限移交，返回机器控制（alpha=0）
         if not self.transition_started or self.start_time is None:
             return 0.0
@@ -343,7 +328,7 @@ class AuthorityAllocator:
         )
         
         # 注册默认策略
-        self.register_strategy(ConstantAlphaStrategy(0.5))
+        self.register_strategy(ConstantAlphaStrategy(0.0))
         self.register_strategy(SteeringBasedStrategy())
         self.register_strategy(EmergencyOverrideStrategy())
         self.register_strategy(AdaptiveStrategy())

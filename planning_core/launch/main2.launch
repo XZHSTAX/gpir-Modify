@@ -52,7 +52,9 @@
   </include>
 
   <!-- 启动G29控制器 -->
-  <arg name="authority_strategy" default="FlexibleTransition" />
+  <arg name="authority_strategy" default="ConstantAlpha" />
+  <arg name="transition_delay" default="5.0" />
+  <arg name="next_strategy_name" default="FlexibleTransition" />
   <include file="$(find shared_control)/launch/g29_controller.launch">
     <arg name="ego_vehicle_name" value="$(arg role_name)"/>
     <param name="authority_strategy" value="$(arg authority_strategy)" />

@@ -4,6 +4,7 @@ import rospy
 import pygame as pg
 from sensor_msgs.msg import Joy
 from geometry_msgs.msg import PoseStamped
+from std_msgs.msg import String
 from carla_msgs.msg import CarlaEgoVehicleControl
 from ros_g29_force_feedback.msg import ForceFeedback
 from authority_allocator import AuthorityAllocator
@@ -31,8 +32,17 @@ class G29Controller:
         # 权限移交延迟时间参数 (毫秒)
         self.transition_delay_ms = rospy.get_param('~transition_delay_ms', 5000)  # 默认5秒
         
+        # 权限移交延迟时间参数 (秒) - 从launch文件传入
+        self.transition_delay = rospy.get_param('~transition_delay', 5.0)  # 默认5秒
+        
+        # 目标接收状态跟踪
+        self.goal_received = False
+        self.goal_timer = None
+        
         # 初始化权限分配器
         strategy_name = rospy.get_param('~authority_strategy', 'ConstantAlpha')
+
+        self.next_strategy_name = rospy.get_param('~next_strategy_name', 'FlexibleTransition')
         
         # 创建权限分配器并直接传入策略名称
         self.authority_allocator = AuthorityAllocator(initial_strategy_name=strategy_name)
@@ -59,10 +69,20 @@ class G29Controller:
             "/ff_target", ForceFeedback, queue_size=10
         )
         
+        # 策略命令发布器
+        self.strategy_command_pub = rospy.Publisher(
+            "/shared_control/strategy_command", String, queue_size=10
+        )
+        
         # 订阅机器控制信号
         control_topic_in = f"/carla/{self.ego_vehicle_name}/vehicle_control_cmd_tmp"
         self.machine_control_sub = rospy.Subscriber(
             control_topic_in, CarlaEgoVehicleControl, self.machine_control_callback
+        )
+        
+        # 订阅目标位置信号
+        self.goal_sub = rospy.Subscriber(
+            "/move_base_simple/goal", PoseStamped, self.goal_callback
         )
         
         # 存储最新的机器控制命令
@@ -197,6 +217,48 @@ class G29Controller:
         """
         self.latest_machine_control = msg
         self.machine_control_received = True
+    
+    def goal_callback(self, msg):
+        """目标位置回调函数
+        
+        在第一次接收到/move_base_simple/goal topic时，启动定时器
+        在指定延迟后发布FlexibleTransition策略命令
+        
+        Args:
+            msg (PoseStamped): 目标位置消息
+        """
+        if not self.goal_received:
+            self.goal_received = True
+            rospy.loginfo(f"First goal received, will publish FlexibleTransition command after {self.transition_delay} seconds")
+            
+            # 如果已有定时器在运行，先取消
+            if self.goal_timer is not None:
+                self.goal_timer.shutdown()
+            
+            # 创建新的定时器
+            self.goal_timer = rospy.Timer(
+                rospy.Duration(self.transition_delay), 
+                self.goal_timer_callback, 
+                oneshot=True
+            )
+    
+    def goal_timer_callback(self, event):
+        """目标定时器回调函数
+        
+        在延迟时间后发布FlexibleTransition策略命令
+        
+        Args:
+            event: 定时器事件
+        """
+        strategy_msg = String()
+        strategy_msg.data = self.next_strategy_name
+        self.strategy_command_pub.publish(strategy_msg)
+        rospy.loginfo("Published FlexibleTransition strategy command")
+        
+        # 清理定时器
+        if self.goal_timer is not None:
+            self.goal_timer.shutdown()
+            self.goal_timer = None
     
     def get_human_control_input(self):
         """获取人类驾驶员的控制输入
