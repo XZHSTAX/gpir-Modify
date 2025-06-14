@@ -224,7 +224,7 @@ class G29Controller:
         
         return human_control
     
-    def build_authority_context(self, human_control):
+    def build_authority_context(self, human_control,start_transition=False):
         """构建权限分配所需的上下文信息
         
         Args:
@@ -241,6 +241,7 @@ class G29Controller:
             'brake_input': human_control.brake,
             'time_delta': (rospy.Time.now() - self.authority_allocator.current_strategy.last_update_time).to_sec(),
             'machine_control_available': self.machine_control_received,
+            'start_transition': start_transition
         }
         
         # 可以在这里添加更多上下文信息，如：
