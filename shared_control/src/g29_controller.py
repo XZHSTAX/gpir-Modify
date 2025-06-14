@@ -6,7 +6,7 @@ from sensor_msgs.msg import Joy
 from geometry_msgs.msg import PoseStamped
 from carla_msgs.msg import CarlaEgoVehicleControl
 from ros_g29_force_feedback.msg import ForceFeedback
-from authority_allocator import AuthorityAllocator, ConstantAlphaStrategy, SteeringBasedStrategy
+from authority_allocator import AuthorityAllocator
 
 
 class G29Controller:
@@ -28,14 +28,14 @@ class G29Controller:
         # 共享控制权重参数 (alpha: 人类控制权重, 1-alpha: 机器控制权重)
         self.alpha = rospy.get_param('~alpha', 0.0)  # 默认机器有完全权限
         
+        # 权限移交延迟时间参数 (毫秒)
+        self.transition_delay_ms = rospy.get_param('~transition_delay_ms', 5000)  # 默认5秒
+        
         # 初始化权限分配器
         strategy_name = rospy.get_param('~authority_strategy', 'ConstantAlpha')
-        if strategy_name == 'SteeringBased':
-            initial_strategy = SteeringBasedStrategy()
-        else:
-            initial_strategy = ConstantAlphaStrategy(self.alpha)
         
-        self.authority_allocator = AuthorityAllocator(initial_strategy)
+        # 创建权限分配器并直接传入策略名称
+        self.authority_allocator = AuthorityAllocator(initial_strategy_name=strategy_name)
         
         # ROS发布器
         self.joy_pub = rospy.Publisher("/joy", Joy, queue_size=10)

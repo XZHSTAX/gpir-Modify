@@ -160,9 +160,9 @@ bool MpcController::CalculateAckermannDrive(
 
   last_control_[0] = optimal_speed;
   last_control_[1] = optimal_steer;
-  LOG(WARNING) << "ref speed: " << ref_v << ", speed: " << optimal_speed
-               << ", steer: " << optimal_steer
-               << ", acc: " << optimal_control[0] / ts_;
+  // LOG(WARNING) << "ref speed: " << ref_v << ", speed: " << optimal_speed
+  //              << ", steer: " << optimal_steer
+  //              << ", acc: " << optimal_control[0] / ts_;
   RecordControlCommand(optimal_speed, optimal_steer);
 
   return true;

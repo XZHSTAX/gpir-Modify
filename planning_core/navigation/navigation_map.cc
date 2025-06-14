@@ -240,7 +240,7 @@ bool NavigationMap::UpdateReferenceLine() {
         std::min(refernce_speed_, std::sqrt(lat_acc_limit / std::fabs(kappa)));
   }
   refernce_speed_ = std::max(0.0, refernce_speed_ + adjust_speed_);
-  LOG(INFO) << "refernce speed: " << refernce_speed_;
+  // LOG(INFO) << "refernce speed: " << refernce_speed_;
 
   PublishRouteSequence();
   PublishReferenceLine();

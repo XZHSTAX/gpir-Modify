@@ -323,13 +323,12 @@ class AuthorityAllocator:
     管理不同的权限分配策略，提供统一的接口来计算和更新alpha值
     """
     
-    def __init__(self, initial_strategy: Optional[AuthorityAllocationStrategy] = None):
+    def __init__(self, initial_strategy_name: Optional[str] = None):
         """初始化权限分配器
         
         Args:
-            initial_strategy (AuthorityAllocationStrategy, optional): 初始策略
+            initial_strategy_name (str, optional): 初始策略名称，如果为None则使用默认策略
         """
-        self.current_strategy = initial_strategy or ConstantAlphaStrategy(0.5)
         self.available_strategies = {}
         self.current_alpha = 0.5
         
@@ -350,7 +349,17 @@ class AuthorityAllocator:
         self.register_strategy(AdaptiveStrategy())
         self.register_strategy(FlexibleTransitionStrategy())
         
-        rospy.loginfo(f"Authority Allocator initialized with strategy: {self.current_strategy.name}")
+        # 设置初始策略
+        if initial_strategy_name and initial_strategy_name in self.available_strategies:
+            self.current_strategy = self.available_strategies[initial_strategy_name]
+            rospy.loginfo(f"Authority Allocator initialized with strategy: {initial_strategy_name}")
+        else:
+            # 使用默认策略
+            self.current_strategy = self.available_strategies.get('ConstantAlpha', ConstantAlphaStrategy(0.5))
+            if initial_strategy_name:
+                rospy.logwarn(f"Strategy '{initial_strategy_name}' not found, using default strategy. "
+                             f"Available strategies: {list(self.available_strategies.keys())}")
+            rospy.loginfo(f"Authority Allocator initialized with default strategy: {self.current_strategy.name}")
     
     def register_strategy(self, strategy: AuthorityAllocationStrategy):
         """注册权限分配策略
