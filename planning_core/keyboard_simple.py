@@ -3,10 +3,11 @@
 import rospy
 import argparse
 import pygame as pg
+import tf.transformations as tf_trans
 
 from pygame.locals import *
 from sensor_msgs.msg import Joy
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, Quaternion
 
 
 class SimpleKeyboardHandler:
@@ -15,13 +16,40 @@ class SimpleKeyboardHandler:
     def __init__(self):
         """初始化键盘处理器
         
-        初始化ROS发布器和命令计数器
+        初始化ROS发布器和命令计数器，获取launch文件中的位置参数
         """
         self.cmd_count = 0
         self.joy_pub = rospy.Publisher("/joy", Joy, queue_size=10)
         self.ego_cmd_pub = rospy.Publisher(
             "/move_base_simple/goal", PoseStamped, queue_size=10
         )
+        
+        # 从launch文件获取目标位置参数 (格式: "x,y,z,roll,pitch,yaw")
+        goal_point_str = rospy.get_param('~goal_point', None)
+        self.target_x = None
+        self.target_y = None
+        self.target_z = None
+        self.target_roll = None
+        self.target_pitch = None
+        self.target_yaw = None
+        
+        if goal_point_str is not None:
+            try:
+                # 解析逗号分隔的参数字符串
+                params = [float(x.strip()) for x in goal_point_str.split(',')]
+                if len(params) == 6:
+                    self.target_x = params[0]
+                    self.target_y = params[1]
+                    self.target_z = params[2]
+                    self.target_roll = params[3]
+                    self.target_pitch = params[4]
+                    self.target_yaw = params[5]
+                    rospy.loginfo(f"Parsed goal_point: x={self.target_x}, y={self.target_y}, z={self.target_z}, "
+                                 f"roll={self.target_roll}, pitch={self.target_pitch}, yaw={self.target_yaw}")
+                else:
+                    rospy.logwarn(f"Invalid goal_point format. Expected 6 values (x,y,z,roll,pitch,yaw), got {len(params)}")
+            except ValueError as e:
+                rospy.logerr(f"Failed to parse goal_point parameter: {e}")
 
     def init_joy(self):
         """初始化Joy消息
@@ -48,10 +76,44 @@ class SimpleKeyboardHandler:
         self.joy_pub.publish(joy)
 
     def publish_ego_start_cmd(self):
-        """发布ego车辆启动命令"""
+        """发布ego车辆启动命令
+        
+        如果launch文件中设置了目标位置参数，则使用这些参数；
+        否则使用默认的空位置信息
+        """
         cmd = PoseStamped()
         cmd.header.frame_id = "map"
         cmd.header.stamp = rospy.Time.now()
+        
+        # 检查是否有从launch文件传入的参数
+        if all(param is not None for param in [self.target_x, self.target_y, self.target_z]):
+            # 设置位置信息
+            cmd.pose.position.x = self.target_x
+            cmd.pose.position.y = self.target_y
+            cmd.pose.position.z = self.target_z
+            
+            # 如果有姿态参数，则设置姿态信息
+            if all(param is not None for param in [self.target_roll, self.target_pitch, self.target_yaw]):
+                # 将欧拉角转换为四元数
+                quaternion = tf_trans.quaternion_from_euler(
+                    self.target_roll, self.target_pitch, self.target_yaw
+                )
+                cmd.pose.orientation = Quaternion(
+                    x=quaternion[0],
+                    y=quaternion[1], 
+                    z=quaternion[2],
+                    w=quaternion[3]
+                )
+            else:
+                # 如果没有姿态参数，使用默认姿态（朝向正前方）
+                cmd.pose.orientation = Quaternion(x=0, y=0, z=0, w=1)
+                
+            rospy.loginfo(f"Publishing ego start command with target position: "
+                         f"x={self.target_x}, y={self.target_y}, z={self.target_z}, "
+                         f"roll={self.target_roll}, pitch={self.target_pitch}, yaw={self.target_yaw}")
+        else:
+            rospy.loginfo("Publishing ego start command with default empty position")
+            
         self.ego_cmd_pub.publish(cmd)
 
     def update(self):

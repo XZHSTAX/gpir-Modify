@@ -1,8 +1,13 @@
 
 <launch>
 
+  <!-- Goal point parameter: format "x,y,z,roll,pitch,yaw" -->
+  <arg name="goal_point" default=""/>
+
   <node pkg="planning_core" name="keyboard" type="keyboard_simple.py" output="screen" 
   args="--img=$(find planning_core)/../misc/keyboard.png">
+    <!-- Pass goal_point parameter to the node -->
+    <param name="goal_point" value="$(arg goal_point)"/>
   </node>
 
 </launch>

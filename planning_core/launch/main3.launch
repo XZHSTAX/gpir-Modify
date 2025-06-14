@@ -1,6 +1,7 @@
 <launch>
 
-  <!-- 同时启动carla，planning -->
+  <!-- 用于测试放置车辆 -->
+  <!-- 同时启动carla和planning -->
   <!-- Common arguments that can be adjusted -->
   <!-- Town configuration -->
   <arg name="town_name" default="Town04"/>
@@ -12,23 +13,21 @@
   <arg name="timeout" default="10"/>
   
   <!-- Vehicle configuration -->
-  <arg name="role_name" default="hero"/>
+  <arg name="role_name" default="ego_vehicle"/>
   <arg name="vehicle_filter" default="vehicle.*"/>
   
   <!-- Spawn points for different towns -->
   <!-- Town05 spawn point -->
-  <arg name="spawn_point_town01" default="92.28,-178.35,1,0,0,90"/>
-  <!-- Town05 spawn point -->
   <arg name="spawn_point_town05" default="73.44,-205.43,1,0,0,0.28"/>
   <!-- Town04 spawn point -->
   <!-- <arg name="spawn_point_town04" default="-270.7,-9.08,2.52,0,-1.91,-179.9"/> -->
-  <arg name="spawn_point_town04" default="-9.8,-214.1,2.52,0,0,90"/>
+  <!-- <arg name="spawn_point_town04" default="-9.8,214.1,2.52,0,0,-90"/> -->
+  <arg name="spawn_point_town04" default="-208,-432,2.52,0,0,0"/>
 
   <!-- Town06 spawn point -->
   <arg name="spawn_point_town06" default="516.23,17.41,1,0,0,-179.87"/>
   
   <!-- Select spawn point based on town -->
-  <arg name="spawn_point" default="$(arg spawn_point_town01)" if="$(eval arg('town_name') == 'Town01')"/>
   <arg name="spawn_point" default="$(arg spawn_point_town05)" if="$(eval arg('town_name') == 'Town05')"/>
   <arg name="spawn_point" default="$(arg spawn_point_town04)" if="$(eval arg('town_name') == 'Town04')"/>
   <arg name="spawn_point" default="$(arg spawn_point_town06)" if="$(eval arg('town_name') == 'Town06')"/>
@@ -40,61 +39,37 @@
   
   <!-- Simulator type -->
   <arg name="simulator" default="Carla"/>
-  <arg name="objects_definition_file" value='$(find planning_core)/simulation/carla/config/spawn_objects2.json'/>
-  <!-- <arg name="objects_definition_file" default='$(find carla_spawn_objects)/config/objects2.json'/> -->
-
-  <!-- Goal point parameter for keyboard control: format "x,y,z,roll,pitch,yaw" -->
-  <arg name="goal_point" default="92.28,-178.35,1,0,0,90"/>
-
+  
   <!-- 启动键盘控制，简易版 -->
+  <arg name="goal_point" default="225.32,-190.01,0,0,0,45"/>
   <include file="$(find planning_core)/launch/keyboard_simple.launch">
     <arg name="goal_point" value="$(arg goal_point)"/>
   </include>
   <!-- 启动G29控制器 -->
   <include file="$(find shared_control)/launch/g29_controller.launch">
     <arg name="ego_vehicle_name" value="$(arg role_name)"/>
+    <arg name="alpha" value="0.0"/>
   </include>
-
-  <!-- 启动G29力反馈 -->
-  <!-- <include file="$(find ros_g29_force_feedback)/launch/g29_feedback.launch"/> -->
-
+  
   <!-- Launch CARLA setup -->
   <include file="$(find planning_core)/launch/carla_setup.launch">
-    <arg name="objects_definition_file" value='$(arg objects_definition_file)'/>
     <arg name="host" value="$(arg host)"/>
     <arg name="port" value="$(arg port)"/>
     <arg name="timeout" value="$(arg timeout)"/>
     <arg name="role_name" value="$(arg role_name)"/>
     <arg name="vehicle_filter" value="$(arg vehicle_filter)"/>
-    <arg name="town" value="$(arg map_path)opendrive/$(arg town_name).xodr"/>
+    <arg name="town" value="$(arg town_name)"/>
     <arg name="spawn_point" value="$(arg spawn_point)"/>
     <arg name="passive" value="$(arg passive)"/>
     <arg name="synchronous_mode_wait_for_vehicle_control_command" value="$(arg synchronous_mode_wait_for_vehicle_control_command)"/>
     <arg name="fixed_delta_seconds" value="$(arg fixed_delta_seconds)"/>
   </include>
-
+  
   <!-- Launch planning -->
   <include file="$(find planning_core)/launch/planning.launch">
     <arg name="map_path" value="$(arg map_path)"/>
     <arg name="town" value="$(arg town_name)"/>
     <arg name="simulator" value="$(arg simulator)"/>
-    <arg name="ego_vehicle_name" value="$(arg role_name)"/>
   </include>
-
-  <arg name="record_file_name" default="Exp1"/>
-
-  <node pkg="rosbag" type="record" name="rosbag_record" output="screen"
-        args="-o $(find planning_core)/../../../rosrecord/$(arg record_file_name)_
-              /human_control_input
-              /carla/$(arg role_name)/vehicle_control_cmd
-              /carla/$(arg role_name)/ackermann_cmd
-              /carla/$(arg role_name)/vehicle_status
-              /carla/$(arg role_name)/vehicle_control_cmd_tmp
-              /carla/$(arg role_name)/odometry
-              /carla/objects
-              /joy
-              external_torque
-              machine_torque
-              m_position" />
   
 </launch>
