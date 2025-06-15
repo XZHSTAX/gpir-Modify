@@ -229,7 +229,7 @@ class G29Controller:
         """
         if not self.goal_received:
             self.goal_received = True
-            rospy.loginfo(f"First goal received, will publish FlexibleTransition command after {self.transition_delay} seconds")
+            rospy.loginfo(f"First goal received, will publish {self.next_strategy_name} command after {self.transition_delay} seconds")
             
             # 如果已有定时器在运行，先取消
             if self.goal_timer is not None:
@@ -253,7 +253,7 @@ class G29Controller:
         strategy_msg = String()
         strategy_msg.data = self.next_strategy_name
         self.strategy_command_pub.publish(strategy_msg)
-        rospy.loginfo("Published FlexibleTransition strategy command")
+        rospy.loginfo(f"Published {self.next_strategy_name} strategy command")
         
         # 清理定时器
         if self.goal_timer is not None:
@@ -366,8 +366,8 @@ class G29Controller:
         # 动态更新alpha值
         self.alpha = self.authority_allocator.update_alpha(context)
         
-        # 如果收到了机器控制信号，进行混合
-        if self.machine_control_received:
+        # 如果收到了机器控制信号，并且人类的权限小于0.97
+        if self.machine_control_received and self.alpha < 0.97:
             final_control = self.blend_control_signals(
                 human_control, self.latest_machine_control, self.alpha
             )

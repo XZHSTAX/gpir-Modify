@@ -80,6 +80,33 @@ class ConstantAlphaStrategy(AuthorityAllocationStrategy):
         return self.alpha_value
 
 
+class SwitchControlStrategy(AuthorityAllocationStrategy):
+    """切换控制策略
+    
+    实现完全的人类控制权限，alpha值固定为1.0
+    适用于需要完全由人类驾驶员控制的场景
+    """
+    
+    def __init__(self):
+        """初始化切换控制策略
+        
+        alpha_value固定为1.0，表示完全的人类控制
+        """
+        super().__init__("SwitchControl")
+        self.alpha_value = 1.0
+    
+    def compute_alpha(self, context: Dict[str, Any]) -> float:
+        """返回固定的alpha值1.0
+        
+        Args:
+            context (Dict[str, Any]): 上下文信息（此策略中未使用）
+            
+        Returns:
+            float: 固定的alpha值1.0，表示完全人类控制
+        """
+        return self.alpha_value
+
+
 class SteeringBasedStrategy(AuthorityAllocationStrategy):
     """基于方向盘输入的权限分配策略
     
@@ -329,6 +356,7 @@ class AuthorityAllocator:
         
         # 注册默认策略
         self.register_strategy(ConstantAlphaStrategy(0.0))
+        self.register_strategy(SwitchControlStrategy())
         self.register_strategy(SteeringBasedStrategy())
         self.register_strategy(EmergencyOverrideStrategy())
         self.register_strategy(AdaptiveStrategy())

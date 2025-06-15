@@ -57,7 +57,8 @@
   <arg name="next_strategy_name" default="FlexibleTransition" />
   <include file="$(find shared_control)/launch/g29_controller.launch">
     <arg name="ego_vehicle_name" value="$(arg role_name)"/>
-    <param name="authority_strategy" value="$(arg authority_strategy)" />
+    <arg name="authority_strategy" value="$(arg authority_strategy)" />
+    <arg name="next_strategy_name" value="$(arg next_strategy_name)" />
   </include>
 
   <!-- 启动G29力反馈 -->
