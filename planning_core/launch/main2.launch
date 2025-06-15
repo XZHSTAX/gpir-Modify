@@ -101,6 +101,9 @@
               /joy
               external_torque
               machine_torque
-              m_position" />
+              m_position
+              /move_base_simple/goal
+              /shared_control/strategy_command
+              /shared_control/alpha" />
   
 </launch>
