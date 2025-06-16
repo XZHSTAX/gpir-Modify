@@ -74,6 +74,8 @@ from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Image
 from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import Bool
+from std_msgs.msg import String
+from std_msgs.msg import Float64
 
 # ==============================================================================
 # -- World ---------------------------------------------------------------------
@@ -104,6 +106,15 @@ class ManualControl(CompatibleNode):
             CarlaLaneInvasionEvent, "/carla/{}/lane_invasion".format(self.role_name),
             self.on_lane_invasion, qos_profile=10)
 
+        # 共享控制话题订阅
+        self.strategy_command_subscriber = self.new_subscription(
+            String, "/shared_control/strategy_command",
+            self.on_strategy_command, qos_profile=10)
+        
+        self.alpha_subscriber = self.new_subscription(
+            Float64, "/shared_control/alpha",
+            self.on_alpha, qos_profile=10)
+
     def on_collision(self, data):
         """
         Callback on collision event
@@ -128,6 +139,18 @@ class ManualControl(CompatibleNode):
             else:
                 text.append("Unknown ")
         self.hud.notification('Crossed line %s' % ' and '.join(text))
+
+    def on_strategy_command(self, data):
+        """
+        处理共享控制策略命令话题的回调函数
+        """
+        self.hud.set_strategy_command(data.data)
+
+    def on_alpha(self, data):
+        """
+        处理共享控制alpha值话题的回调函数
+        """
+        self.hud.set_alpha(data.data)
 
     def on_view_image(self, image):
         """
@@ -315,6 +338,11 @@ class HUD(object):
         self._show_info = True
         self._info_text = []
         self.vehicle_status = CarlaEgoVehicleStatus()
+        
+        # 共享控制相关变量
+        self.strategy_command = None
+        self.alpha_value = 0.0
+        self.show_alpha_progress = False
 
         self.vehicle_status_subscriber = node.new_subscription(
             CarlaEgoVehicleStatus, "/carla/{}/vehicle_status".format(self.role_name),
@@ -459,6 +487,14 @@ class HUD(object):
         self._info_text += [('Manual ctrl:', self.manual_control)]
         if self.carla_status.synchronous_mode:
             self._info_text += [('Sync mode running:', self.carla_status.synchronous_mode_running)]
+        
+        # 添加共享控制信息显示
+        if self.strategy_command is not None:
+            self._info_text += ['', 'Shared Control:']
+            self._info_text += ['Strategy: %s' % self.strategy_command]
+            if self.show_alpha_progress:
+                self._info_text += [('Alpha:', self.alpha_value, 0.0, 1.0)]
+        
         self._info_text += ['', '', 'Press <H> for help']
 
     def toggle_info(self):
@@ -483,6 +519,31 @@ class HUD(object):
         """
         render the display
         """
+        # 在屏幕顶部绘制alpha进度条
+        if self.show_alpha_progress and self.strategy_command is not None:
+            progress_bar_height = 20
+            progress_bar_width = self.dim[0] - 40  # 留出边距
+            progress_bar_x = 20
+            progress_bar_y = 10
+            
+            # 绘制进度条背景
+            background_rect = pygame.Rect(progress_bar_x, progress_bar_y, progress_bar_width, progress_bar_height)
+            pygame.draw.rect(display, (50, 50, 50), background_rect)
+            pygame.draw.rect(display, (255, 255, 255), background_rect, 2)
+            
+            # 绘制进度条填充
+            fill_width = int(self.alpha_value * progress_bar_width)
+            if fill_width > 0:
+                fill_rect = pygame.Rect(progress_bar_x, progress_bar_y, fill_width, progress_bar_height)
+                pygame.draw.rect(display, (224, 224, 224), fill_rect)
+            
+            # 绘制进度条文本
+            progress_text = "Alpha Progress: {:.2f}".format(self.alpha_value)
+            text_surface = self._font_mono.render(progress_text, True, (255, 255, 255))
+            text_x = progress_bar_x + progress_bar_width + 10
+            text_y = progress_bar_y + 3
+            display.blit(text_surface, (text_x, text_y))
+        
         if self._show_info:
             info_surface = pygame.Surface((220, self.dim[1]))
             info_surface.set_alpha(100)
@@ -522,6 +583,23 @@ class HUD(object):
                 v_offset += 18
         self._notifications.render(display)
         self.help.render(display)
+    
+    def set_strategy_command(self, command):
+        """
+        设置共享控制策略命令
+        """
+        self.strategy_command = command
+        self.update_info_text()
+        self.notification('Shared Control Strategy: {}'.format(command))
+    
+    def set_alpha(self, alpha):
+        """
+        设置共享控制alpha值
+        """
+        self.alpha_value = max(0.0, min(1.0, alpha))  # 确保值在[0,1]范围内
+        if self.strategy_command is not None:
+            self.show_alpha_progress = True
+        self.update_info_text()
 
 
 # ==============================================================================
