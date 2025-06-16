@@ -40,16 +40,16 @@
   
   <!-- Simulator type -->
   <arg name="simulator" default="Carla"/>
-  <arg name="objects_definition_file" value='$(find planning_core)/simulation/carla/config/spawn_objects2.json'/>
+  <arg name="objects_definition_file" value='$(find planning_core)/simulation/carla/config/spawn_objects3.json'/>
   <!-- <arg name="objects_definition_file" default='$(find carla_spawn_objects)/config/objects2.json'/> -->
 
   <!-- Goal point parameter for keyboard control: format "x,y,z,roll,pitch,yaw" -->
 
   <!-- 启动键盘控制，简易版 -->
-  <arg name="goal_point" default=""/>
+  <!-- <arg name="goal_point" default=""/>
   <include file="$(find planning_core)/launch/keyboard_simple.launch">
     <arg name="goal_point" value="$(arg goal_point)"/>
-  </include>
+  </include> -->
 
   <!-- 启动G29控制器 -->
   <arg name="authority_strategy" default="ConstantAlpha" />
@@ -72,7 +72,7 @@
     <arg name="timeout" value="$(arg timeout)"/>
     <arg name="role_name" value="$(arg role_name)"/>
     <arg name="vehicle_filter" value="$(arg vehicle_filter)"/>
-    <arg name="town" value="$(arg map_path)opendrive/$(arg town_name).xodr"/>
+    <arg name="town" value="$(arg town_name)"/>
     <arg name="spawn_point" value="$(arg spawn_point)"/>
     <arg name="passive" value="$(arg passive)"/>
     <arg name="synchronous_mode_wait_for_vehicle_control_command" value="$(arg synchronous_mode_wait_for_vehicle_control_command)"/>
