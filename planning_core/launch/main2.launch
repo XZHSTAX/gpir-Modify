@@ -95,7 +95,7 @@
               /carla/$(arg role_name)/vehicle_control_cmd
               /carla/$(arg role_name)/ackermann_cmd
               /carla/$(arg role_name)/vehicle_status
-              /carla/$(arg role_name)/vehicle_control_cmd_tmp
+              /carla/$(arg role_name)/vehicle_control_cmd_machine
               /carla/$(arg role_name)/odometry
               /carla/objects
               /joy

@@ -254,8 +254,8 @@ class FlexibleTransitionStrategy(AuthorityAllocationStrategy):
         # 确保alpha在有效范围内
         alpha = max(0.0, min(1.0, alpha))
         
-        # 当alpha大于0.97时，令alpha=1
-        if alpha > 0.97:
+        # 当alpha大于0.99时，令alpha=1
+        if alpha > 0.99:
             alpha = 1.0
         
         rospy.logdebug(f"Flexible transition: t={time_diff:.2f}s, alpha={alpha:.3f}")

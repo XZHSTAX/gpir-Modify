@@ -55,6 +55,7 @@ class G29Controller:
         
         # 车辆控制命令发布器 (最终输出)
         control_topic_out = f"/carla/{self.ego_vehicle_name}/vehicle_control_cmd"
+        machine_control_topic_out = f"/carla/{self.ego_vehicle_name}/vehicle_control_cmd_machine"
         self.vehicle_control_pub = rospy.Publisher(
             control_topic_out, CarlaEgoVehicleControl, queue_size=10
         )
@@ -62,6 +63,10 @@ class G29Controller:
         # 人类控制输入发布器
         self.human_control_pub = rospy.Publisher(
             "/human_control_input", CarlaEgoVehicleControl, queue_size=10
+        )
+
+        self.machine_control_pub = rospy.Publisher(
+            machine_control_topic_out, CarlaEgoVehicleControl, queue_size=10
         )
         
         # 力反馈发布器
@@ -260,14 +265,14 @@ class G29Controller:
             self.goal_timer.shutdown()
             self.goal_timer = None
     
-    def get_human_control_input(self):
+    def get_human_control_input(self,time_now):
         """获取人类驾驶员的控制输入
         
         Returns:
             CarlaEgoVehicleControl: 人类驾驶员的控制命令
         """
         human_control = CarlaEgoVehicleControl()
-        human_control.header.stamp = rospy.Time.now()
+        human_control.header.stamp = time_now
         human_control.header.frame_id = "base_link"
         
         # 读取G29输入
@@ -314,7 +319,7 @@ class G29Controller:
         
         return context
     
-    def blend_control_signals(self, human_control, machine_control, alpha):
+    def blend_control_signals(self, human_control, machine_control, alpha,time_now):
         """混合人类和机器的控制信号
         
         Args:
@@ -326,7 +331,7 @@ class G29Controller:
             CarlaEgoVehicleControl: 混合后的控制命令
         """
         blended_control = CarlaEgoVehicleControl()
-        blended_control.header.stamp = rospy.Time.now()
+        blended_control.header.stamp = time_now
         blended_control.header.frame_id = "base_link"
         
         # 线性加权混合
@@ -356,9 +361,9 @@ class G29Controller:
         
         读取方向盘和踏板的值，与机器控制信号混合后发布最终控制命令
         """
-        
+        time_now = rospy.Time.now()
         # 获取人类控制输入
-        human_control = self.get_human_control_input()
+        human_control = self.get_human_control_input(time_now)
         
         # 构建权限分配上下文
         context = self.build_authority_context(human_control)
@@ -366,10 +371,10 @@ class G29Controller:
         # 动态更新alpha值
         self.alpha = self.authority_allocator.update_alpha(context)
         
-        # 如果收到了机器控制信号，并且人类的权限小于0.97
-        if self.machine_control_received and self.alpha < 0.97:
+        # 如果收到了机器控制信号，并且人类的权限小于0.99
+        if self.machine_control_received and self.alpha < 0.99:
             final_control = self.blend_control_signals(
-                human_control, self.latest_machine_control, self.alpha
+                human_control, self.latest_machine_control, self.alpha,time_now
             )
             rospy.logdebug(f"Blended control - Steer: {final_control.steer:.2f}, "
                           f"Throttle: {final_control.throttle:.2f}, Brake: {final_control.brake:.2f}")
@@ -383,6 +388,9 @@ class G29Controller:
         
         # 发布最终控制命令
         self.vehicle_control_pub.publish(final_control)
+
+        self.latest_machine_control.header.stamp = time_now
+        self.machine_control_pub.publish(self.latest_machine_control)
         
         # 发布力反馈消息
         self.publish_force_feedback(final_control.steer)
