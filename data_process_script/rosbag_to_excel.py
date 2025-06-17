@@ -313,9 +313,9 @@ def main():
     主函数
     """
     parser = argparse.ArgumentParser(description='ROSBag数据提取工具')
-    parser.add_argument('--input_dir', default='/home/xzh2/ros1/gpir_Modify/rosrecord/Exp1-main2', 
+    parser.add_argument('--input_dir', default='/home/xzh2/ros1/gpir_Modify/rosrecord/Exp1/Exp1-main', 
                        help='输入目录路径 (默认: rosrecord/Exp1-main)')
-    parser.add_argument('--output_dir', default='/home/xzh2/ros1/gpir_Modify/rosrecord/Exp1-main2/result-mid', 
+    parser.add_argument('--output_dir', default='/home/xzh2/ros1/gpir_Modify/rosrecord/Exp1/Exp1-main/result-mid', 
                        help='输出目录路径 (默认: rosrecord/Exp1-main)')
     
     args = parser.parse_args()

@@ -279,10 +279,10 @@ def main():
     """
     parser = argparse.ArgumentParser(description='处理ROSBag提取的Excel数据')
     parser.add_argument('--input_dir', type=str, 
-                       default='/home/xzh2/ros1/gpir_Modify/rosrecord/Exp1-main2/result-mid',
+                       default='/home/xzh2/ros1/gpir_Modify/rosrecord/Exp1/Exp1-main/result-mid',
                        help='输入目录路径')
     parser.add_argument('--output_dir', type=str,
-                       default='/home/xzh2/ros1/gpir_Modify/rosrecord/Exp1-main2/result',
+                       default='/home/xzh2/ros1/gpir_Modify/rosrecord/Exp1/Exp1-main/result',
                        help='输出目录路径')
     
     args = parser.parse_args()
