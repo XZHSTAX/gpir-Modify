@@ -95,6 +95,19 @@ def get_conflict_metrix(merged_input):
 
     return TiC,Conflict_DeltaT
 
+# 接管综合绩效计算函数
+def calu_OverallPerformance(min_TTC,a_lon_max,a_lat_max,CarshOrNot=1):
+    """
+    计算综合绩效
+    """
+    min_TTC_norm = min(min_TTC/10,1)
+    a_lon_max_norm = 1 -  a_lon_max/10
+    a_lat_max_norm = 1 - a_lat_max/10
+
+    VPG = CarshOrNot * (min_TTC_norm + a_lon_max_norm + 2*a_lat_max_norm) /4
+
+    return VPG
+
 
 def process_single_file(file_path):
     """
@@ -144,8 +157,10 @@ def process_single_file(file_path):
         Tic,Conflict_DeltaT = get_conflict_metrix(merged_input)
         metrics['Tic'] = Tic
         metrics['Conflict_DeltaT'] = Conflict_DeltaT
+        # ------------------------------------------------------------------------
 
-
+        VPG = calu_OverallPerformance(min_TTC,metrics['a_lon_max'],metrics['a_lat_max'])
+        metrics['VPG'] = VPG
         
         return metrics
     except Exception as e:
