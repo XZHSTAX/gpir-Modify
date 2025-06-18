@@ -71,6 +71,10 @@ def extract_vehicle_status_data(vehicle_status_msg, odometry_msg=None):
     
     data['a_lat'] = a_lat
     data['a_lon'] = a_lon
+
+    data['h_x'] = np.cos(yaw)
+    data['h_y'] = np.sin(yaw)
+
     
     # 如果有里程计数据，提取位置和速度信息
     if odometry_msg:
@@ -87,6 +91,8 @@ def extract_vehicle_status_data(vehicle_status_msg, odometry_msg=None):
         
         data['v_lat'] = v_lat
         data['v_lon'] = v_lon
+        data['v_x'] = v_x
+        data['v_y'] = v_y
         
         # 提取横摆角速度 (yaw rate)
         data['dot_yaw'] = odometry_msg.twist.twist.angular.z
@@ -133,7 +139,11 @@ def extract_objects_data(msg):
             'y': y,
             'v': v,
             'a': a,
-            'yaw': yaw
+            'yaw': yaw,
+            'h_x': np.cos(yaw),
+            'h_y': np.sin(yaw),
+            'v_x': v_x,
+            'v_y': v_y,
         }
     
     return objects_data

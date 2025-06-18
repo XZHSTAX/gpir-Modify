@@ -8,6 +8,7 @@ import pandas as pd
 import os
 import re
 from collections import defaultdict
+import TwoDimTTC
 
 def extract_driver_id(filename):
     """
@@ -23,6 +24,43 @@ def extract_driver_id(filename):
     if match:
         return f"D{match.group(1)}"
     return None
+
+def calu_TTC(ego_vehicle_status,other_vehicle_status):
+    """
+    计算TTC指标
+    """
+    # 提取x,y,v_x,v_y,h_x,h_y
+    ego_info = ego_vehicle_status[['x','y','v_x','v_y','h_x','h_y']].copy()
+    other_info = other_vehicle_status[['x','y','v_x','v_y','h_x','h_y']].copy()
+
+    ego_info.rename(columns={
+        'x':'x_i',
+        'y':'y_i',
+        'v_x':'vx_i',
+        'v_y':'vy_i',
+        'h_x':'hx_i',
+        'h_y':'hy_i'
+    }, inplace=True)
+    ego_info['length_i'] = 4.69
+    ego_info['width_i'] = 1.85
+
+    other_info.rename(columns={
+        'x':'x_j',
+        'y':'y_j',
+        'v_x':'vx_j',
+        'v_y':'vy_j',
+        'h_x':'hx_j',
+        'h_y':'hy_j'
+    }, inplace=True)
+    other_info['length_j'] = 4.925
+    other_info['width_j'] = 1.86
+    combined_df = pd.concat([ego_info, other_info], axis=1)
+
+    TTC = TwoDimTTC.TTC(combined_df,'values')
+
+    return TTC
+
+
 
 def process_single_file(file_path):
     """
@@ -45,6 +83,28 @@ def process_single_file(file_path):
             'dot_yaw_max': ego_vehicle_status['dot_yaw'].abs().max(),
             'dot_yaw_ave': ego_vehicle_status['dot_yaw'].abs().mean()
         }
+
+        # 读取excel文件，并且获得所有的sheet名称
+        excel_file = pd.ExcelFile(file_path)
+        sheet_names = excel_file.sheet_names
+
+        # 筛选sheet_names名称中以vehicle开头的，其中后续数字最小的是自车，其他的是其他车辆
+        vehicle_sheet_names = [name for name in sheet_names if name.startswith('vehicle')]
+        vehicle_sheet_names.sort(key=lambda x: int(x.split('_')[-1]))
+        ego_sheet_name = vehicle_sheet_names[0]
+        other_sheet_names = vehicle_sheet_names[1:]
+
+        # 读取自车和其他车辆的sheet
+        ego_vehicle_status = pd.read_excel(file_path, sheet_name=ego_sheet_name)
+        # 遍历其他车辆，计算得到最小TTC
+        min_TTC = float('inf')
+        for other_sheet_name in other_sheet_names:
+            other_vehicle_status = pd.read_excel(file_path, sheet_name=other_sheet_name)
+            TTC = calu_TTC(ego_vehicle_status,other_vehicle_status)
+            if TTC.min() < min_TTC:
+                min_TTC = TTC.min()
+        metrics['min_TTC'] = min_TTC
+
         
         return metrics
     except Exception as e:
