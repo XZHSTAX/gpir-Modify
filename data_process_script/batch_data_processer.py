@@ -9,6 +9,7 @@ import os
 import re
 from collections import defaultdict
 import TwoDimTTC
+import numpy as np
 
 def extract_driver_id(filename):
     """
@@ -60,6 +61,39 @@ def calu_TTC(ego_vehicle_status,other_vehicle_status):
 
     return TTC
 
+def get_conflict_metrix(merged_input):
+    # 读取merged_input中h_steer,m_steer,Delta_steer列的值，并转变为numpy类型
+    # 对h_steer,m_steer,Delta_steer从-1，1映射到-450°,450°
+    timestamp = merged_input['timestamp'].values
+    h_steer = merged_input['h_steer'].values * 450
+    m_steer = merged_input['m_steer'].values * 450
+    Delta_steer = merged_input['Delta_steer'].values * 450
+    
+    # 设置阈值
+    delta_Threshold = 20.0  # 例如5度，根据实际情况调整
+
+    # 计算角度差
+    delta_delta = np.abs(Delta_steer)
+
+    # 计算总时间
+    T = timestamp[-1] - timestamp[0]
+
+    # 计算冲突时间
+    conflict_mask = delta_delta > delta_Threshold
+    # 计算每个时间间隔
+    dt = np.diff(timestamp)
+    # 冲突时间段的dt
+    Tc = np.sum(dt[conflict_mask[:-1]])  # 注意：dt长度比原始数据少1
+
+    # 计算时间一致性指标 TiC
+    TiC = Tc / T
+
+    # 计算冲突累计值 J
+    # 使用梯形积分法
+    Conflict_DeltaT = np.trapz(delta_delta, timestamp)
+
+
+    return TiC,Conflict_DeltaT
 
 
 def process_single_file(file_path):
@@ -84,6 +118,7 @@ def process_single_file(file_path):
             'dot_yaw_ave': ego_vehicle_status['dot_yaw'].abs().mean()
         }
 
+        # ------------------------------------------------------------------------
         # 读取excel文件，并且获得所有的sheet名称
         excel_file = pd.ExcelFile(file_path)
         sheet_names = excel_file.sheet_names
@@ -104,6 +139,12 @@ def process_single_file(file_path):
             if TTC.min() < min_TTC:
                 min_TTC = TTC.min()
         metrics['min_TTC'] = min_TTC
+        # ------------------------------------------------------------------------
+        merged_input = pd.read_excel(file_path, sheet_name="merged_input")
+        Tic,Conflict_DeltaT = get_conflict_metrix(merged_input)
+        metrics['Tic'] = Tic
+        metrics['Conflict_DeltaT'] = Conflict_DeltaT
+
 
         
         return metrics
