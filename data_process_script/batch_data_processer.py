@@ -10,6 +10,7 @@ import re
 from collections import defaultdict
 import TwoDimTTC
 import numpy as np
+import SWRRcalu
 
 def extract_driver_id(filename):
     """
@@ -108,6 +109,14 @@ def calu_OverallPerformance(min_TTC,a_lon_max,a_lat_max,CarshOrNot=1):
 
     return VPG
 
+def calu_SWRR(merged_input):
+    timestamp = merged_input['timestamp'].values
+    h_steer = merged_input['h_steer'].values * 450
+    gap_size_deg = 3
+    lowpass_cutoff_freq_hz = 0.6
+    SWRR = SWRRcalu.steering_wheel_reversal_rate(h_steer,timestamp,gap_size_deg,lowpass_cutoff_freq_hz)
+    return SWRR
+
 
 def process_single_file(file_path):
     """
@@ -161,6 +170,9 @@ def process_single_file(file_path):
 
         VPG = calu_OverallPerformance(min_TTC,metrics['a_lon_max'],metrics['a_lat_max'])
         metrics['VPG'] = VPG
+        # ------------------------------------------------------------------------
+        SWRR = calu_SWRR(merged_input)
+        metrics['SWRR'] = SWRR
         
         return metrics
     except Exception as e:
