@@ -184,8 +184,10 @@ def main():
     主函数：批量处理所有Excel文件并生成汇总报告
     """
     # 设置输入和输出路径
-    input_dir = "rosrecord/Exp1/Exp1-main/result/"
-    output_file = "batch_analysis_results.xlsx"
+    dir_name = 'Exp2/'
+    dir_name2 = 'Exp2-Compare1/'
+    input_dir = "rosrecord/"+ dir_name+ dir_name2+"result/"
+    output_file = "rosrecord/"+dir_name+dir_name2[:-1]+".xlsx"
     
     # 检查输入目录是否存在
     if not os.path.exists(input_dir):

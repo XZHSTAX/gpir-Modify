@@ -535,7 +535,10 @@ class HUD(object):
             fill_width = int(self.alpha_value * progress_bar_width)
             if fill_width > 0:
                 fill_rect = pygame.Rect(progress_bar_x, progress_bar_y, fill_width, progress_bar_height)
-                pygame.draw.rect(display, (224, 224, 224), fill_rect)
+                if self.alpha_value>0.97:
+                    pygame.draw.rect(display, (220, 0, 0), fill_rect)
+                else:
+                    pygame.draw.rect(display, (224, 224, 224), fill_rect)
             
             # 绘制进度条文本
             progress_text = "Alpha Progress: {:.2f}".format(self.alpha_value)

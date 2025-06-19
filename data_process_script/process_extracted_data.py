@@ -120,7 +120,7 @@ def align_timestamps(*dataframes, tolerance=0.01):
     return pd.DataFrame(result_data)
 
 
-def process_single_file(input_path, output_path):
+def process_single_file(input_path, output_path,DURATION=None):
     """
     处理单个Excel文件
     
@@ -149,20 +149,22 @@ def process_single_file(input_path, output_path):
         if 'timestamp' in trans_point_df.columns and len(trans_point_df) > 0:
             start_time = trans_point_df['timestamp'].iloc[0]
             print(f"  起始时间 (trans_point第一个时间戳): {start_time}")
-    
-    # 获取alpha第一次等于1的时间戳作为结束时间
-    if 'alpha' in excel_data and not excel_data['alpha'].empty:
-        alpha_df = excel_data['alpha']
-        if 'alpha' in alpha_df.columns and 'timestamp' in alpha_df.columns:
-            # 查找alpha等于1的行
-            alpha_1_mask = (alpha_df['alpha'] == 1.0) | (alpha_df['alpha'] == 1)
-            alpha_1_rows = alpha_df[alpha_1_mask]
-            if not alpha_1_rows.empty:
-                end_time = alpha_1_rows['timestamp'].iloc[0]
-                print(f"  结束时间 (alpha第一次等于1): {end_time}")
-            else:
-                print(f"  警告: 在alpha sheet中未找到alpha=1的行")
-                print(f"  alpha列的唯一值: {alpha_df['alpha'].unique()}")
+    if DURATION is not None:
+        end_time = start_time + DURATION
+    else:
+        # 获取alpha第一次等于1的时间戳作为结束时间
+        if 'alpha' in excel_data and not excel_data['alpha'].empty:
+            alpha_df = excel_data['alpha']
+            if 'alpha' in alpha_df.columns and 'timestamp' in alpha_df.columns:
+                # 查找alpha等于1的行
+                alpha_1_mask = (alpha_df['alpha'] == 1.0) | (alpha_df['alpha'] == 1)
+                alpha_1_rows = alpha_df[alpha_1_mask]
+                if not alpha_1_rows.empty:
+                    end_time = alpha_1_rows['timestamp'].iloc[0]
+                    print(f"  结束时间 (alpha第一次等于1): {end_time}")
+                else:
+                    print(f"  警告: 在alpha sheet中未找到alpha=1的行")
+                    print(f"  alpha列的唯一值: {alpha_df['alpha'].unique()}")
     
     if start_time is None or end_time is None:
         print(f"  警告: 无法确定时间范围 (start_time: {start_time}, end_time: {end_time})")
@@ -277,12 +279,14 @@ def main():
     """
     主函数
     """
+    dir_name = 'Exp2/'
+    dir_name2 = 'Exp2-Compare1/'
     parser = argparse.ArgumentParser(description='处理ROSBag提取的Excel数据')
     parser.add_argument('--input_dir', type=str, 
-                       default='/home/xzh2/ros1/gpir_Modify/rosrecord/Exp1/Exp1-main/result-mid',
+                       default='/home/xzh2/ros1/gpir_Modify/rosrecord/'+dir_name+dir_name2+'result-mid',
                        help='输入目录路径')
     parser.add_argument('--output_dir', type=str,
-                       default='/home/xzh2/ros1/gpir_Modify/rosrecord/Exp1/Exp1-main/result',
+                       default='/home/xzh2/ros1/gpir_Modify/rosrecord/'+dir_name+dir_name2+'result',
                        help='输出目录路径')
     
     args = parser.parse_args()
@@ -311,7 +315,18 @@ def main():
     # 处理每个文件
     for xlsx_file in xlsx_files:
         output_file = output_dir / xlsx_file.name
-        process_single_file(str(xlsx_file), str(output_file))
+        if 'Compare1' in dir_name2 :
+            if dir_name == 'Exp1/':
+                duration = 7
+            elif dir_name == 'Exp2/':
+                duration = 3
+            elif dir_name == 'Exp3/':
+                duration = 10
+            else:
+                print('Traget dir_name is not define in here')
+            process_single_file(str(xlsx_file), str(output_file),duration)
+        else:
+            process_single_file(str(xlsx_file), str(output_file))
         print()
     
     print("所有文件处理完成！")
