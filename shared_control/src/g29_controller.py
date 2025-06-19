@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from platform import machine
 import rospy
 import pygame as pg
 from sensor_msgs.msg import Joy
@@ -338,8 +339,18 @@ class G29Controller:
         blended_control.steer = alpha * human_control.steer + (1.0 - alpha) * machine_control.steer
         # blended_control.throttle = alpha * human_control.throttle + (1.0 - alpha) * machine_control.throttle
         # blended_control.brake = alpha * human_control.brake + (1.0 - alpha) * machine_control.brake
-        blended_control.throttle = machine_control.throttle
-        blended_control.brake = machine_control.brake
+        if human_control.brake > machine_control.brake + 0.01:
+            blended_control.brake = human_control.brake
+        else:
+            blended_control.brake = machine_control.brake
+
+        if human_control.throttle > machine_control.throttle + 0.01:
+            blended_control.throttle = human_control.throttle
+            blended_control.brake = 0
+        elif human_control.brake > machine_control.brake + 0.01:
+            blended_control.throttle = 0
+        else:
+            blended_control.throttle = machine_control.throttle
         
         # 布尔值采用人类优先策略
         blended_control.hand_brake = human_control.hand_brake or machine_control.hand_brake

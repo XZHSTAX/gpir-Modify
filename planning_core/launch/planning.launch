@@ -21,13 +21,4 @@
   <param name="ego_vehicle_name" value="$(arg ego_vehicle_name)"/>
 </node>
 
-<!-- rviz -->
-<arg name="rvizconfig" default="$(find planning_core)/rviz/planning.rviz"/>
-<node name="planning_rviz" pkg="rviz" type="rviz" args="-d $(arg rvizconfig)" required="false" />
-
-<!-- 3D model display -->
-<arg name="model" default="$(find planning_core)/3d_model/3d_model.xacro" />
-<param name="robot_description" command="$(find xacro)/xacro --inorder $(arg model)" />
-<node name="vehicle" pkg="robot_state_publisher" type="robot_state_publisher" />
-
 </launch>
