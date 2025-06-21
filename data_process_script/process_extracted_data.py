@@ -279,20 +279,21 @@ def main():
     """
     主函数
     """
-    dir_name = 'Exp2/'
-    dir_name2 = 'Exp2-Compare1/'
-    parser = argparse.ArgumentParser(description='处理ROSBag提取的Excel数据')
-    parser.add_argument('--input_dir', type=str, 
-                       default='/home/xzh2/ros1/gpir_Modify/rosrecord/'+dir_name+dir_name2+'result-mid',
-                       help='输入目录路径')
-    parser.add_argument('--output_dir', type=str,
-                       default='/home/xzh2/ros1/gpir_Modify/rosrecord/'+dir_name+dir_name2+'result',
-                       help='输出目录路径')
-    
+    parser = argparse.ArgumentParser(description='excel 预处理')
+    parser.add_argument('--Exp_setting', default='Exp1', help='实验设置，默认为Exp1')
+    parser.add_argument('--method_setting', default='main', help='方法设置，默认为main')
+  
     args = parser.parse_args()
-    
-    input_dir = Path(args.input_dir)
-    output_dir = Path(args.output_dir)
+
+    up_dir = "/home/xzh2/ros1/gpir_Modify/rosrecord/"
+    input_dir = up_dir+args.Exp_setting+"/"+args.Exp_setting+"-"+args.method_setting+"/result-mid"
+    output_dir = up_dir+args.Exp_setting+"/"+args.Exp_setting+"-"+args.method_setting+"/result"
+
+    print("input_dir: " + input_dir)
+    print("output_dir: " + output_dir)
+   
+    input_dir = Path(input_dir)
+    output_dir = Path(output_dir)
     
     # 检查输入目录
     if not input_dir.exists():
@@ -315,12 +316,12 @@ def main():
     # 处理每个文件
     for xlsx_file in xlsx_files:
         output_file = output_dir / xlsx_file.name
-        if 'Compare1' in dir_name2 :
-            if dir_name == 'Exp1/':
+        if 'Compare1' ==  args.method_setting:
+            if args.Exp_setting == 'Exp1':
                 duration = 7
-            elif dir_name == 'Exp2/':
+            elif args.Exp_setting == 'Exp2':
                 duration = 3
-            elif dir_name == 'Exp3/':
+            elif args.Exp_setting == 'Exp3':
                 duration = 10
             else:
                 print('Traget dir_name is not define in here')

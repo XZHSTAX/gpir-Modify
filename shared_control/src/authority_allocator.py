@@ -360,9 +360,9 @@ class AuthorityAllocator:
         self.register_strategy(SteeringBasedStrategy())
         self.register_strategy(EmergencyOverrideStrategy())
         self.register_strategy(AdaptiveStrategy())
-        # self.register_strategy(FlexibleTransitionStrategy())
+        self.register_strategy(FlexibleTransitionStrategy())
         # self.register_strategy(FlexibleTransitionStrategy(3.2,4.8))
-        self.register_strategy(FlexibleTransitionStrategy(0.8,4))
+        # self.register_strategy(FlexibleTransitionStrategy(0.8,4))
         
         # 设置初始策略
         if initial_strategy_name and initial_strategy_name in self.available_strategies:

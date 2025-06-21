@@ -322,18 +322,19 @@ def main():
     """
     主函数
     """
-    dir_name = 'Exp2/'
-    dir_name2 = 'Exp2-Compare1/'
+
     parser = argparse.ArgumentParser(description='ROSBag数据提取工具')
-    parser.add_argument('--input_dir', default='/home/xzh2/ros1/gpir_Modify/rosrecord/'+dir_name+dir_name2, 
-                       help='输入目录路径 (默认: rosrecord/Exp1-main)')
-    parser.add_argument('--output_dir', default='/home/xzh2/ros1/gpir_Modify/rosrecord/'+dir_name+dir_name2+'result-mid', 
-                       help='输出目录路径 (默认: rosrecord/Exp1-main)')
-    
+    parser.add_argument('--Exp_setting', default='Exp1', help='实验设置，默认为Exp1')
+    parser.add_argument('--method_setting', default='main', help='方法设置，默认为main')
+  
     args = parser.parse_args()
-    
-    input_dir = args.input_dir
-    output_dir = args.output_dir
+
+    up_dir = "/home/xzh2/ros1/gpir_Modify/rosrecord/"
+    input_dir = up_dir+args.Exp_setting+"/"+args.Exp_setting+"-"+args.method_setting
+    output_dir = up_dir+args.Exp_setting+"/"+args.Exp_setting+"-"+args.method_setting+"/result-mid"
+
+    print("input_dir: " + input_dir)
+    print("output_dir: " + output_dir)
     
     # 确保输出目录存在
     os.makedirs(output_dir, exist_ok=True)

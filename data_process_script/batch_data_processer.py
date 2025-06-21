@@ -11,6 +11,7 @@ from collections import defaultdict
 import TwoDimTTC
 import numpy as np
 import SWRRcalu
+import argparse
 
 def extract_driver_id(filename):
     """
@@ -183,12 +184,19 @@ def main():
     """
     主函数：批量处理所有Excel文件并生成汇总报告
     """
-    # 设置输入和输出路径
-    dir_name = 'Exp2/'
-    dir_name2 = 'Exp2-Compare1/'
-    input_dir = "rosrecord/"+ dir_name+ dir_name2+"result/"
-    output_file = "rosrecord/"+dir_name+dir_name2[:-1]+".xlsx"
-    
+
+    parser = argparse.ArgumentParser(description='提取信息')
+    parser.add_argument('--Exp_setting', default='Exp1', help='实验设置，默认为Exp1')
+    parser.add_argument('--method_setting', default='main', help='方法设置，默认为main')
+  
+    args = parser.parse_args()
+
+    up_dir = "/home/xzh2/ros1/gpir_Modify/rosrecord/"
+    input_dir = up_dir+args.Exp_setting+"/"+args.Exp_setting+"-"+args.method_setting+"/result"
+    output_file = up_dir+args.Exp_setting+"/"+args.Exp_setting+"-"+args.method_setting+".xlsx"
+
+    print("input_dir: " + input_dir)
+    print("output_dir: " + output_file)
     # 检查输入目录是否存在
     if not os.path.exists(input_dir):
         print(f"错误：输入目录 {input_dir} 不存在")
