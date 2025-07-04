@@ -82,21 +82,10 @@ def get_segments_data(xls,df_ego):
 
     auto_data = df_ego[auto_mask]
 
-    alpha = xls.parse('alpha')
-    # 找到alpha等于1的行
-    mask = alpha['alpha'] == 1
-    # 如果有多行alpha==1，取第一次出现的
-    if mask.any():
-        first_timestamp = alpha.loc[mask, 'timestamp'].iloc[0]
-    else:
-        print("没有alpha等于1的行")
-    shared_mask = (df_ego['timestamp'] > trans_point_time) & (df_ego['timestamp'] <= first_timestamp)
-    shared_data = df_ego[shared_mask]
-
-    manual_mask = df_ego['timestamp'] > first_timestamp
+    manual_mask = df_ego['timestamp'] > trans_point_time
     manual_data = df_ego[manual_mask]
 
-    return auto_data,shared_data,manual_data
+    return auto_data,manual_data
 
 
 def plot_trajectories_from_file(file_path, output_dir):
@@ -137,10 +126,9 @@ def plot_trajectories_from_file(file_path, output_dir):
     # Plot ego vehicle
     df_ego = xls.parse(ego_sheet)
 
-    auto_data,shared_data,manual_data = get_segments_data(xls,df_ego)
+    auto_data,manual_data = get_segments_data(xls,df_ego)
 
     plt.plot(auto_data['y'].to_numpy(), auto_data['x'].to_numpy(), label="自动驾驶模式", color='#bad7e9', linewidth=12, linestyle='-')
-    plt.plot(shared_data['y'].to_numpy(), shared_data['x'].to_numpy(), label="接管辅助", color='#ffad84', linewidth=12, linestyle='-')
     plt.plot(manual_data['y'].to_numpy(), manual_data['x'].to_numpy(), label="手动驾驶模式", color='#ffe382', linewidth=12, linestyle='-')
 
     if 'x' in df_ego.columns and 'y' in df_ego.columns:
@@ -168,6 +156,8 @@ def plot_trajectories_from_file(file_path, output_dir):
                     last_annotated_time = row['relative_time']
                     nt = nt + 1
 
+    
+
     # plt.title(f'Trajectory from {os.path.basename(file_path)}', fontsize=18, pad=20)
     plt.xlabel('Y', fontsize=14, labelpad=10)
     plt.ylabel('X', fontsize=14, labelpad=10)
@@ -188,10 +178,8 @@ def main():
     """Main function to process all Excel files in the directory."""
     # The user mentioned path is relative to the workspace root, so we construct the absolute path.
     # Assuming the script is run from the workspace root.
-    input_dir = '/home/xzh2/ros1/gpir_Modify/rosrecord/Exp1/Exp1-main/result-for-plot-traj'
-    output_dir = '/home/xzh2/ros1/gpir_Modify/rosrecord/Exp1/Exp1-main/result-for-plot-traj/plots'
-    # input_dir = '/home/xzh2/ros1/gpir_Modify/rosrecord/Exp1/Exp1-Compare2/result-for-plot-traj'
-    # output_dir = '/home/xzh2/ros1/gpir_Modify/rosrecord/Exp1/Exp1-Compare2/result-for-plot-traj/plots'
+    input_dir = '/home/xzh2/ros1/gpir_Modify/rosrecord/Exp1/Exp1-Compare1/result-for-plot-traj'
+    output_dir = '/home/xzh2/ros1/gpir_Modify/rosrecord/Exp1/Exp1-Compare1/result-for-plot-traj/plots'
 
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
