@@ -270,6 +270,166 @@ class FlexibleTransitionStrategy(AuthorityAllocationStrategy):
         super().reset()
         self.reset_transition()
 
+class HumanMachineCollaborationStrategy(AuthorityAllocationStrategy):
+    """基于人机协作状态的权限分配策略
+    
+    基于时间的柔性权限移交策略，使用sigmoid函数逐渐增加驾驶权限
+    权限移交函数: α(t) = 1 / (1 + e^(-a(t-t0) + b))
+    其中 t0 为起始时间，t 为当前时间，a,b 为调节参数
+    """
+    
+    def __init__(self):
+        """初始化柔性切换策略
+        
+        Args:
+            a (float): 调节参数a，控制切换速度，默认为1.2
+            b (float): 调节参数b，代表对称中心的x坐标值，默认为3.5
+        """
+        super().__init__("HumanMachineCollaboration")
+        self.start_time = None
+        self.transition_started = False
+        self.C = 0
+        self.alpha = 0
+        self.v_exp = 0
+       
+    def reset_transition(self):
+        """重置权限移交过程
+        
+        重置起始时间，开始权限移交
+        """
+        rospy.loginfo("HumanMachineCollaboration transition reset")
+        self.start_time = rospy.Time.now()
+        rospy.loginfo(f"HumanMachineCollaboration transition started at time: {self.start_time.to_sec()}")
+        self.transition_started = True
+    
+    def compute_alpha(self, context: Dict[str, Any]) -> float:
+        """基于时间计算权限分配系数alpha
+        
+        使用sigmoid函数实现柔性权限移交:
+        α(t) = 1 / (1 + e^(-a(t-t0) + b))
+        
+        Args:
+            context (Dict[str, Any]): 上下文信息
+                可选键值对：
+                - 'start_transition': bool - 是否开始权限移交
+                - 'reset_transition': bool - 是否重置权限移交
+                
+        Returns:
+            float: 计算得到的alpha值 (0.0-1.0)
+        """
+        # 如果还没有开始权限移交，返回机器控制（alpha=0）
+        if not self.transition_started or self.start_time is None:
+            return 0.0
+        
+        # 计算当前时间与起始时间的差值
+        current_time = rospy.Time.now()
+        time_diff = (current_time - self.start_time).to_sec()
+        self.C = time_diff
+
+        T = context['T']   # 驾驶员的输入力矩
+        Tt = context['Tt'] # 机器的输入力矩
+        Pr = context['steering_angle'] # 驾驶员的输入角度
+        Pa = context['machine_control'].steer # 机器的输入角度
+        self.v_exp = context['v_exp']
+
+        QC = self.compute_QC(self.C)
+        # QC = self.C
+
+        QT = self.compute_QT(T,Tt)
+
+        Q = self.compute_Q(QT,QC)
+        S = self.compute_S(T,Tt,np.sign(T),np.sign(Tt),Pr,Pa)
+        rospy.loginfo(f"alpha={self.alpha:.3f}, Q={Q:.3f},QC={QC:.3f},QT={QT:.3f},S={S:.3f},C={self.C:.3f}")
+
+
+        alpha = self.compute_alpha_based_on_QS(Q,QC,S)
+        
+        # 确保alpha在有效范围内
+        alpha = max(0.0, min(1.0, alpha))
+        # 当alpha大于0.99时，令alpha=1
+        if alpha > 0.99:
+            alpha = 1.0
+
+        self.alpha = alpha
+        
+        rospy.logdebug(f"Flexible transition: t={time_diff:.2f}s, alpha={alpha:.3f}")
+        
+        return self.alpha
+    
+    def reset(self):
+        """重置策略状态
+        
+        在策略切换或系统重启时调用
+        """
+        super().reset()
+        self.reset_transition()
+
+    def compute_Q(self,QT,QC,alpha1=0.892,alpha2=1.75,alpha3=1.404):
+        """计算Q值
+        """
+        exponent = -np.power(alpha1 + QT, alpha2) * np.power(QC, alpha3)
+        Q = 1 - np.exp(exponent)
+        return Q
+
+    def compute_QC(self,C,alpha_c=1.055,T0=7):
+        """计算QC值，公式为 Q_C = 1 / (1 + exp(-alpha_c * (C - T0/2)))
+        """
+        QC = 1 / (1 + np.exp(-alpha_c * (C - T0 / 2)))
+        return QC
+
+    def compute_C(self,S_g,S_h,C_k = 1/(50*7),S_gmax = 1):
+        self.C = self.C + (S_gmax - S_g) * S_h* C_k
+        return self.C
+
+    def compute_QT(self,T,Tt,alpha_a = 12.5,alpha_b = 0.5,Tmax=15,Tmin=-15):
+        """计算Q_T值
+        此处输入的T和Tt为归一化之前的力矩
+        """
+        T = (T - Tmin) / (Tmax - Tmin)
+        Tt = (Tt - Tmin) / (Tmax - Tmin)
+
+        term1 = 1 / (1 + np.exp(-alpha_a / Tt * (T - alpha_b * Tt)))
+        term2 = 1 / (1 + np.exp(alpha_a / (1 - Tt) * (T - alpha_b * (Tt + 1))))
+        Q_T = term1 + term2 - 1
+        # rospy.loginfo(f"Q_T={Q_T:.3f},T={T:.3f},Tt={Tt:.3f},term1={term1:.3f},term2={term2:.3f}")
+        return Q_T
+
+    def compute_S(self,Td,Ta,Dd,Da,Pr,Pa,omega1=1,omega2=1,omega3=20):
+        """计算S值
+
+        Args:
+            Td (float): Td值
+            Ta (float): Ta值
+            Dd (float): Dd值
+            Da (float): Da值
+            Pr (float): Pr值
+            Pa (float): Pa值
+            omega1 (float): 权重omega1，默认1
+            omega2 (float): 权重omega2，默认1
+            omega3 (float): 权重omega3，默认1
+
+        Returns:
+            float: 计算得到的S值
+        """
+        term1 = omega1 * abs(abs(Td) - abs(Ta))
+        term2 = omega2 * abs(Dd - Da)
+        term3 = omega3 * abs(Pr - Pa)
+        S = term1 + term2 + term3
+        return S
+
+    # TODO: 这里的参数还没设置好；关于速度的反馈也没设置好，以及关于状态的记录也没设置好
+    def compute_alpha_based_on_QS(self,Q,QC,S,q1=0.3,s1=1,eta=5,epsilon=9.85,n1=0.5/50,n2=2/50):
+        if Q >= q1 and S <s1:
+            self.alpha = 1 / (1+ np.exp(eta - epsilon * QC))
+        elif Q >= q1 and S >=s1:
+            self.alpha = 1 / (1+ np.exp(eta - epsilon * QC * S))
+        elif Q < q1 and S < s1:
+            self.v_exp = self.v_exp - n1*(1 - QC)
+        else:
+            self.v_exp = self.v_exp - n2*(1 - QC)
+        return self.alpha
+
+
 
 class AdaptiveStrategy(AuthorityAllocationStrategy):
     """自适应权限分配策略
@@ -361,8 +521,10 @@ class AuthorityAllocator:
         self.register_strategy(EmergencyOverrideStrategy())
         self.register_strategy(AdaptiveStrategy())
         self.register_strategy(FlexibleTransitionStrategy())
+        
         # self.register_strategy(FlexibleTransitionStrategy(3.2,4.8))
         # self.register_strategy(FlexibleTransitionStrategy(0.8,4))
+        self.register_strategy(HumanMachineCollaborationStrategy())
         
         # 设置初始策略
         if initial_strategy_name and initial_strategy_name in self.available_strategies:

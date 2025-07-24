@@ -5,7 +5,7 @@ import rospy
 import pygame as pg
 from sensor_msgs.msg import Joy
 from geometry_msgs.msg import PoseStamped
-from std_msgs.msg import String
+from std_msgs.msg import String, Float64
 from carla_msgs.msg import CarlaEgoVehicleControl
 from ros_g29_force_feedback.msg import ForceFeedback
 from authority_allocator import AuthorityAllocator
@@ -91,9 +91,19 @@ class G29Controller:
             "/move_base_simple/goal", PoseStamped, self.goal_callback
         )
         
+        # 订阅外部扭矩和机器扭矩
+        self.external_torque_sub = rospy.Subscriber(
+            "external_torque", Float64, self.external_torque_callback
+        )
+        self.machine_torque_sub = rospy.Subscriber(
+            "machine_torque", Float64, self.machine_torque_callback
+        )
+
         # 存储最新的机器控制命令
         self.latest_machine_control = CarlaEgoVehicleControl()
         self.machine_control_received = False
+        self.external_torque = 0.0
+        self.machine_torque = 0.0
         
         # 初始化pygame和joystick
         pg.init()
@@ -224,6 +234,22 @@ class G29Controller:
         self.latest_machine_control = msg
         self.machine_control_received = True
     
+    def external_torque_callback(self, msg):
+        """外部扭矩回调函数
+        
+        Args:
+            msg (Float64): 外部扭矩消息
+        """
+        self.external_torque = msg.data
+
+    def machine_torque_callback(self, msg):
+        """机器扭矩回调函数
+        
+        Args:
+            msg (Float64): 机器扭矩消息
+        """
+        self.machine_torque = msg.data
+
     def goal_callback(self, msg):
         """目标位置回调函数
         
@@ -251,7 +277,7 @@ class G29Controller:
     def goal_timer_callback(self, event):
         """目标定时器回调函数
         
-        在延迟时间后发布FlexibleTransition策略命令
+        在延迟时间后发布下一个策略的命令
         
         Args:
             event: 定时器事件
@@ -309,7 +335,10 @@ class G29Controller:
             'brake_input': human_control.brake,
             'time_delta': (rospy.Time.now() - self.authority_allocator.current_strategy.last_update_time).to_sec(),
             'machine_control_available': self.machine_control_received,
-            'start_transition': start_transition
+            'start_transition': start_transition,
+            'T':self.external_torque,
+            'Tt':self.machine_torque,
+            'v_exp': 0
         }
         
         # 可以在这里添加更多上下文信息，如：

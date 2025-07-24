@@ -46,15 +46,15 @@
   <!-- Goal point parameter for keyboard control: format "x,y,z,roll,pitch,yaw" -->
 
   <!-- 启动键盘控制，简易版 -->
-  <!-- <arg name="goal_point" default=""/>
+  <arg name="goal_point" default=""/>
   <include file="$(find planning_core)/launch/keyboard_simple.launch">
     <arg name="goal_point" value="$(arg goal_point)"/>
-  </include> -->
+  </include>
 
   <!-- 启动G29控制器 -->
   <arg name="authority_strategy" default="ConstantAlpha" />
   <arg name="transition_delay" default="5.0" />
-  <arg name="next_strategy_name" default="FlexibleTransition" />
+  <arg name="next_strategy_name" default="HumanMachineCollaboration" />
   <include file="$(find shared_control)/launch/g29_controller.launch">
     <arg name="ego_vehicle_name" value="$(arg role_name)"/>
     <arg name="authority_strategy" value="$(arg authority_strategy)" />
@@ -62,7 +62,7 @@
   </include>
 
   <!-- 启动G29力反馈 -->
-  <!-- <include file="$(find ros_g29_force_feedback)/launch/g29_feedback.launch"/> -->
+  <include file="$(find ros_g29_force_feedback)/launch/g29_feedback.launch"/>
 
   <!-- Launch CARLA setup -->
   <include file="$(find planning_core)/launch/carla_setup.launch">
@@ -87,7 +87,7 @@
     <arg name="ego_vehicle_name" value="$(arg role_name)"/>
   </include>
 
-  <arg name="record_file_name" default="Exp1_D1"/>
+  <arg name="record_file_name" default="TEST"/>
 
   <node pkg="rosbag" type="record" name="rosbag_record" output="screen"
         args="-o $(find planning_core)/../../../rosrecord/Exp1/Exp1-main/$(arg record_file_name)
