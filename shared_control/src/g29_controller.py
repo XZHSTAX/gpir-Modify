@@ -7,6 +7,7 @@ from sensor_msgs.msg import Joy
 from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import String, Float64
 from carla_msgs.msg import CarlaEgoVehicleControl
+from ackermann_msgs.msg import AckermannDrive
 from ros_g29_force_feedback.msg import ForceFeedback
 from authority_allocator import AuthorityAllocator
 
@@ -99,11 +100,18 @@ class G29Controller:
             "machine_torque", Float64, self.machine_torque_callback
         )
 
+        # 订阅ackermann指令
+        ackermann_cmd_topic = f"/carla/{self.ego_vehicle_name}/ackermann_cmd"
+        self.ackermann_cmd_sub = rospy.Subscriber(
+            ackermann_cmd_topic, AckermannDrive, self.ackermann_cmd_callback
+        )
+
         # 存储最新的机器控制命令
         self.latest_machine_control = CarlaEgoVehicleControl()
         self.machine_control_received = False
         self.external_torque = 0.0
         self.machine_torque = 0.0
+        self.latest_ackermann_cmd = AckermannDrive()
         
         # 初始化pygame和joystick
         pg.init()
@@ -198,6 +206,14 @@ class G29Controller:
         if self.joystick.get_numaxes() > 0:
             return self.joystick.get_axis(0)  # 通常轴0是方向盘
         return 0.0
+
+    def ackermann_cmd_callback(self, msg):
+        """Ackermann指令回调函数
+
+        Args:
+            msg (AckermannDrive): 接收到的Ackermann指令消息
+        """
+        self.latest_ackermann_cmd = msg
     
     def read_throttle_pedal(self):
         """读取油门踏板值
@@ -422,6 +438,25 @@ class G29Controller:
             # 如果没有机器控制信号，只使用人类控制
             final_control = human_control
             rospy.logdebug("Using human control only (no machine signal)")
+
+        v_exp = self.latest_ackermann_cmd.speed
+        # 如果下一个策略是人机协作状态，那么需要对final_control做进一步的处理，包括根据踏板深度重新设置速度的期望值，以及安全过滤器的设置
+        if self.next_strategy_name == 'HumanMachineCollaboration':
+            # 1. 根据踏板深度重新设置期望速度
+            Delta_acc = human_control.throttle - self.latest_machine_control.throttle
+            Delta_brake = human_control.brake - self.latest_machine_control.brake
+
+            # 如果人类的对油门的控制大于机器的控制，则需要根据差值修改期望速度
+            if Delta_acc>0.01:
+                v_exp = v_exp + Delta_acc*10
+            elif Delta_brake>0.01:
+                v_exp = v_exp - Delta_brake*10
+                v_exp = max(v_exp,0)
+
+            # if Delta_acc>0 and 
+            # 2. 安全过滤器
+            # pass
+
         
         # 发布人类控制输入信号
         self.human_control_pub.publish(human_control)
