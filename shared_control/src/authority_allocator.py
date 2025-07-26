@@ -339,7 +339,7 @@ class HumanMachineCollaborationStrategy(AuthorityAllocationStrategy):
 
         Q = self.compute_Q(QT,QC)
         S = self.compute_S(T,Tt,np.sign(T),np.sign(Tt),Pr,Pa)
-        rospy.loginfo(f"alpha={self.alpha:.3f}, Q={Q:.3f},QC={QC:.3f},QT={QT:.3f},S={S:.3f},C={self.C:.3f}")
+        # rospy.loginfo(f"alpha={self.alpha:.3f}, Q={Q:.3f},QC={QC:.3f},QT={QT:.3f},S={S:.3f},C={self.C:.3f}")
 
 
         alpha = self.compute_alpha_based_on_QS(Q,QC,S)

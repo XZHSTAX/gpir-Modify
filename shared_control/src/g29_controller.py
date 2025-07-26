@@ -3,14 +3,18 @@
 from platform import machine
 import rospy
 import pygame as pg
+import numpy as np
 from sensor_msgs.msg import Joy
 from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import String, Float64
 from carla_msgs.msg import CarlaEgoVehicleControl
 from ackermann_msgs.msg import AckermannDrive
 from ros_g29_force_feedback.msg import ForceFeedback
+from derived_object_msgs.msg import ObjectArray
+from tf.transformations import euler_from_quaternion
 from authority_allocator import AuthorityAllocator
-
+from safety_filter import cbf_filter
+from pid_controller import PIDController
 
 class G29Controller:
     """Logitech G29方向盘控制器
@@ -106,12 +110,21 @@ class G29Controller:
             ackermann_cmd_topic, AckermannDrive, self.ackermann_cmd_callback
         )
 
+        # 订阅场景中所有车辆的信息
+        self.objects_sub = rospy.Subscriber(
+            "/carla/objects", ObjectArray, self.objects_callback
+        )
+
         # 存储最新的机器控制命令
         self.latest_machine_control = CarlaEgoVehicleControl()
         self.machine_control_received = False
         self.external_torque = 0.0
         self.machine_torque = 0.0
         self.latest_ackermann_cmd = AckermannDrive()
+        self.ego_vehicle_state = np.zeros(3)  # [x, y, psi]
+        self.other_vehicles_state = np.empty((0, 3))  # [x, y, psi]
+        self.ego_vehicle_speed = 0.0
+        self.speed_controller = PIDController(3.5, 0.15, 0.4)
         
         # 初始化pygame和joystick
         pg.init()
@@ -197,6 +210,47 @@ class G29Controller:
             print(f"{self.cmd_count}: Trigger ego start command.")
             self.publish_ego_start_cmd()
     
+    def objects_callback(self, msg):
+        """
+        处理来自/carla/objects话题的数据，更新车辆状态
+
+        Args:
+            msg (derived_object_msgs.msg.ObjectArray): 包含场景中所有对象信息的消息
+        """
+        if not msg.objects:
+            return
+
+        # 找到ID最小的车辆作为自车
+        ego_vehicle_obj = min(msg.objects, key=lambda obj: obj.id)
+
+        # 提取自车状态
+        ego_x = ego_vehicle_obj.pose.position.x
+        ego_y = ego_vehicle_obj.pose.position.y
+        orientation = ego_vehicle_obj.pose.orientation
+        quaternion = [orientation.x, orientation.y, orientation.z, orientation.w]
+        _, _, ego_psi = euler_from_quaternion(quaternion)
+        self.ego_vehicle_state = np.array([ego_x, ego_y, ego_psi])
+        vx = ego_vehicle_obj.twist.linear.x
+        vy = ego_vehicle_obj.twist.linear.y
+
+        self.ego_vehicle_speed = np.sqrt(vx**2 + vy**2)
+
+        # 提取其他车辆状态
+        other_vehicles = []
+        for obj in msg.objects:
+            if obj.id != ego_vehicle_obj.id:
+                x = obj.pose.position.x
+                y = obj.pose.position.y
+                orientation = obj.pose.orientation
+                quaternion = [orientation.x, orientation.y, orientation.z, orientation.w]
+                _, _, psi = euler_from_quaternion(quaternion)
+                other_vehicles.append([x, y, psi])
+        
+        if other_vehicles:
+            self.other_vehicles_state = np.array(other_vehicles)
+        else:
+            self.other_vehicles_state = np.empty((0, 3))
+
     def read_steering_wheel(self):
         """读取方向盘转向值
         
@@ -411,6 +465,72 @@ class G29Controller:
         blended_control.brake = max(0.0, min(1.0, blended_control.brake))
         
         return blended_control
+
+    def _apply_safety_filter(self, human_control, v_exp, final_control,dt = 0.02,k_delta=np.pi/6):
+        """应用安全过滤器。
+
+        根据人类输入和车辆状态，对控制指令应用安全过滤器。
+
+        Args:
+            human_control: 来自人类驾驶员的控制输入。
+            v_exp (float): 期望速度。
+            final_control: 将要被修改的最终控制指令。
+            dt: 该函数被调用的时间间隔，实际上就是该节点的运行频率的倒数
+            k_delta: 方向盘从[-1,1]映射到前轮转角的比例系数
+
+        Returns:
+            tuple: 包含更新后的期望速度和最终控制指令的元组。
+        """
+        # 1. 根据踏板深度重新设置期望速度
+        Delta_acc = human_control.throttle - self.latest_machine_control.throttle
+        Delta_brake = human_control.brake - self.latest_machine_control.brake
+
+        # 如果人类的对油门的控制大于机器的控制，则需要根据差值修改期望速度
+        # 这里没有写如果同时踩下刹车和油门的处理逻辑，因为实验中没人这么做
+        if Delta_acc > 0.01:
+            v_exp = v_exp + Delta_acc * 10
+        elif Delta_brake > 0.01:
+            v_exp = v_exp - Delta_brake * 10
+            v_exp = max(v_exp, 0)
+
+        # 2. 安全过滤器
+        # 准备 cbf_filter 的输入
+        # 假设轴距为 2.875 米
+        wheelbase = 2.875
+        omega_mix = v_exp * np.tan(final_control.steer*k_delta) / wheelbase # 注意final_control.steer的输入值是[-1,1]，需要转换为前轮转角区间[-30,30]，即[-pi/6,pi/6]
+        u_star = np.array([v_exp, omega_mix])
+        p_ego = self.ego_vehicle_state
+        p_other = self.other_vehicles_state
+
+        # 调用安全过滤器
+        if p_other.size > 0:
+            u_safe = cbf_filter(u_star, p_ego, p_other)
+            v_safe, omega_safe = u_safe[0], u_safe[1]
+
+            # 更新 final_control
+            v_safe_control = self.speed_controller.control(v_safe - self.ego_vehicle_speed, dt)
+            if v_safe_control >= 0:
+                final_control.throttle = min(v_safe_control, 1.0)
+                final_control.brake = 0
+            else:
+                final_control.throttle = 0
+                final_control.brake = min(abs(v_safe_control) / 8, 1.0)
+
+            # 根据安全角速度更新转向
+            # steer = arctan(omega * L / v)
+            # 当v很小时，这个计算不稳定，需要处理
+            if v_safe > 0.1:
+                safe_steer = np.arctan(omega_safe * wheelbase / v_safe) /k_delta # 注意需要将前轮转角区间[-30,30]转换为[-1,1]
+                final_control.steer = np.clip(safe_steer, -1.0, 1.0)
+            else:
+                # 速度很低时，保持原转向或置零
+                final_control.steer = 0.0
+
+            rospy.loginfo(f"Original u*: {u_star}, Safe u: {u_safe}")
+        else:
+            rospy.loginfo("No other vehicles, skipping safety filter.")
+        
+        return v_exp, final_control
     
     def process_analog_inputs(self):
         """处理模拟输入（方向盘、踏板）并发布共享控制命令
@@ -420,6 +540,7 @@ class G29Controller:
         time_now = rospy.Time.now()
         # 获取人类控制输入
         human_control = self.get_human_control_input(time_now)
+        # human_control.steer = 0
         
         # 构建权限分配上下文
         context = self.build_authority_context(human_control)
@@ -434,29 +555,14 @@ class G29Controller:
             )
             rospy.logdebug(f"Blended control - Steer: {final_control.steer:.2f}, "
                           f"Throttle: {final_control.throttle:.2f}, Brake: {final_control.brake:.2f}")
+            # 安全过滤器
+            v_exp = self.latest_ackermann_cmd.speed
+            if self.authority_allocator.current_strategy.name == 'HumanMachineCollaboration':
+                v_exp, final_control = self._apply_safety_filter(human_control, v_exp, final_control)
         else:
             # 如果没有机器控制信号，只使用人类控制
             final_control = human_control
             rospy.logdebug("Using human control only (no machine signal)")
-
-        v_exp = self.latest_ackermann_cmd.speed
-        # 如果下一个策略是人机协作状态，那么需要对final_control做进一步的处理，包括根据踏板深度重新设置速度的期望值，以及安全过滤器的设置
-        if self.next_strategy_name == 'HumanMachineCollaboration':
-            # 1. 根据踏板深度重新设置期望速度
-            Delta_acc = human_control.throttle - self.latest_machine_control.throttle
-            Delta_brake = human_control.brake - self.latest_machine_control.brake
-
-            # 如果人类的对油门的控制大于机器的控制，则需要根据差值修改期望速度
-            if Delta_acc>0.01:
-                v_exp = v_exp + Delta_acc*10
-            elif Delta_brake>0.01:
-                v_exp = v_exp - Delta_brake*10
-                v_exp = max(v_exp,0)
-
-            # if Delta_acc>0 and 
-            # 2. 安全过滤器
-            # pass
-
         
         # 发布人类控制输入信号
         self.human_control_pub.publish(human_control)

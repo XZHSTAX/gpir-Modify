@@ -2,7 +2,7 @@ import osqp
 import numpy as np
 from scipy import sparse
 
-def cbf_filter(u_star, p_ego, p_other):
+def cbf_filter(u_star, p_ego, p_other,alpha_gamma = 1):
     """安全过滤器，基于控制障碍函数（CBF）确保安全。
 
     Args:
@@ -10,6 +10,7 @@ def cbf_filter(u_star, p_ego, p_other):
         p_ego (np.array): 自车中心点的坐标，p_ego = [x_ego, y_ego, psi_ego]。
         p_other (np.array): 二维列表，包含场景中所有其他车辆的中心点坐标，
                               p_other = [[x1, y1, psi1], [x2, y2, psi2], ...]。
+        alpha_gamma (float): 用于调整CBF的权重，alpha_gamma 越小，越安全，可行解越少
 
     Returns:
         np.array: 经过安全滤波后的控制量 u = [v, omega]。
@@ -18,7 +19,6 @@ def cbf_filter(u_star, p_ego, p_other):
     d_safe = 2.875 / 2.0 + 0.5
     w_v = 1.0
     w_omega = 1.0
-    alpha_gamma = 1.0
 
     # 1. 计算自车和障碍物车辆的圆心
     s_values = [0, l, -l]
