@@ -46,15 +46,15 @@
   <!-- Goal point parameter for keyboard control: format "x,y,z,roll,pitch,yaw" -->
 
   <!-- 启动键盘控制，简易版 -->
-  <arg name="goal_point" default=""/>
+  <!-- <arg name="goal_point" default=""/>
   <include file="$(find planning_core)/launch/keyboard_simple.launch">
     <arg name="goal_point" value="$(arg goal_point)"/>
-  </include>
+  </include> -->
 
   <!-- 启动G29控制器 -->
   <arg name="authority_strategy" default="ConstantAlpha" />
   <arg name="transition_delay" default="5.0" />
-  <arg name="next_strategy_name" default="HumanMachineCollaboration" />
+  <arg name="next_strategy_name" default="SafetyCritical" />
   <include file="$(find shared_control)/launch/g29_controller.launch">
     <arg name="ego_vehicle_name" value="$(arg role_name)"/>
     <arg name="authority_strategy" value="$(arg authority_strategy)" />
@@ -90,7 +90,7 @@
   <arg name="record_file_name" default="TEST"/>
 
   <node pkg="rosbag" type="record" name="rosbag_record" output="screen"
-        args="-o $(find planning_core)/../../../rosrecord/Exp1/Exp1-main/$(arg record_file_name)
+        args="-o $(find planning_core)/../../../rosrecord2/Exp-main/$(arg record_file_name)
               /human_control_input
               /carla/$(arg role_name)/vehicle_control_cmd
               /carla/$(arg role_name)/ackermann_cmd
@@ -104,6 +104,8 @@
               m_position
               /move_base_simple/goal
               /shared_control/strategy_command
-              /shared_control/alpha" />
+              /shared_control/alpha
+              /HM_state
+              /mixControl" />
   
 </launch>

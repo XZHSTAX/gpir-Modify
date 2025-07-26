@@ -12,6 +12,8 @@ from ackermann_msgs.msg import AckermannDrive
 from ros_g29_force_feedback.msg import ForceFeedback
 from derived_object_msgs.msg import ObjectArray
 from tf.transformations import euler_from_quaternion
+import pandas as pd
+from TwoDimTTC import TTC
 from authority_allocator import AuthorityAllocator
 from safety_filter import cbf_filter
 from pid_controller import PIDController
@@ -129,7 +131,13 @@ class G29Controller:
         self.ego_vehicle_state = np.zeros(3)  # [x, y, psi]
         self.other_vehicles_state = np.empty((0, 3))  # [x, y, psi]
         self.ego_vehicle_speed = 0.0
+        self.ego_vehicle_acc_lat_lon = [0,0]
         self.speed_controller = PIDController(3.5, 0.15, 0.4)
+
+        # For TTC calculation
+        self.min_ttc = np.inf
+        self.ego_vehicle_full_state = {}
+        self.other_vehicles_full_state = []
         
         # 初始化pygame和joystick
         pg.init()
@@ -225,8 +233,11 @@ class G29Controller:
         if not msg.objects:
             return
 
-        # 找到ID最小的车辆作为自车
-        ego_vehicle_obj = min(msg.objects, key=lambda obj: obj.id)
+        try:
+            # 找到ID最小的车辆作为自车
+            ego_vehicle_obj = min(msg.objects, key=lambda obj: obj.id)
+        except ValueError:
+            return
 
         # 提取自车状态
         ego_x = ego_vehicle_obj.pose.position.x
@@ -240,8 +251,28 @@ class G29Controller:
 
         self.ego_vehicle_speed = np.sqrt(vx**2 + vy**2)
 
+        ax = ego_vehicle_obj.accel.linear.x
+        ay = ego_vehicle_obj.accel.linear.y
+        cos_yaw = np.cos(ego_psi)
+        sin_yaw = np.sin(ego_psi)
+        self.ego_vehicle_acc_lat_lon[0] = ax * cos_yaw + ay * sin_yaw
+        self.ego_vehicle_acc_lat_lon[1] = ay * cos_yaw -ax * sin_yaw
+
+        # For TTC calculation
+        self.ego_vehicle_full_state = {
+            'x': ego_x,
+            'y': ego_y,
+            'vx': vx,
+            'vy': vy,
+            'hx': cos_yaw,
+            'hy': sin_yaw,
+            'length': ego_vehicle_obj.shape.dimensions[0] if len(ego_vehicle_obj.shape.dimensions) > 0 else 4.5, # default car length
+            'width': ego_vehicle_obj.shape.dimensions[1] if len(ego_vehicle_obj.shape.dimensions) > 1 else 1.8, # default car width
+        }
+
         # 提取其他车辆状态
         other_vehicles = []
+        self.other_vehicles_full_state = []
         for obj in msg.objects:
             if obj.id != ego_vehicle_obj.id:
                 x = obj.pose.position.x
@@ -250,11 +281,64 @@ class G29Controller:
                 quaternion = [orientation.x, orientation.y, orientation.z, orientation.w]
                 _, _, psi = euler_from_quaternion(quaternion)
                 other_vehicles.append([x, y, psi])
+                
+                # For TTC calculation
+                self.other_vehicles_full_state.append({
+                    'x': x,
+                    'y': y,
+                    'vx': obj.twist.linear.x,
+                    'vy': obj.twist.linear.y,
+                    'hx': np.cos(psi),
+                    'hy': np.sin(psi),
+                    'length': obj.shape.dimensions[0] if len(obj.shape.dimensions) > 0 else 4.5,
+                    'width': obj.shape.dimensions[1] if len(obj.shape.dimensions) > 1 else 1.8,
+                })
         
         if other_vehicles:
             self.other_vehicles_state = np.array(other_vehicles)
         else:
             self.other_vehicles_state = np.empty((0, 3))
+
+        self.calculate_and_update_ttc()
+
+    def calculate_and_update_ttc(self):
+        """
+        计算并更新自车与场景中其他车辆的最小TTC
+        """
+        if not self.ego_vehicle_full_state or not self.other_vehicles_full_state:
+            self.min_ttc = np.inf
+            return
+
+        ttc_values = []
+        for other_vehicle_state in self.other_vehicles_full_state:
+            data = {
+                'x_i': self.ego_vehicle_full_state['x'],
+                'y_i': self.ego_vehicle_full_state['y'],
+                'vx_i': self.ego_vehicle_full_state['vx'],
+                'vy_i': self.ego_vehicle_full_state['vy'],
+                'hx_i': self.ego_vehicle_full_state['hx'],
+                'hy_i': self.ego_vehicle_full_state['hy'],
+                'length_i': self.ego_vehicle_full_state['length'],
+                'width_i': self.ego_vehicle_full_state['width'],
+                'x_j': other_vehicle_state['x'],
+                'y_j': other_vehicle_state['y'],
+                'vx_j': other_vehicle_state['vx'],
+                'vy_j': other_vehicle_state['vy'],
+                'hx_j': other_vehicle_state['hx'],
+                'hy_j': other_vehicle_state['hy'],
+                'length_j': other_vehicle_state['length'],
+                'width_j': other_vehicle_state['width'],
+            }
+            df = pd.DataFrame([data])
+            # The TTC function returns a numpy array
+            ttc = TTC(df, toreturn='values')
+            if ttc.size > 0:
+                ttc_values.append(ttc[0])
+
+        if ttc_values:
+            self.min_ttc = min(ttc_values)
+        else:
+            self.min_ttc = np.inf
 
     def read_steering_wheel(self):
         """读取方向盘转向值
@@ -413,15 +497,10 @@ class G29Controller:
             'start_transition': start_transition,
             'T':self.external_torque,
             'Tt':self.machine_torque,
-            'v_exp': 0
+            'v_exp': 0,
+            'ay':self.ego_vehicle_acc_lat_lon[1],
+            't_ttc': self.min_ttc
         }
-        
-        # 可以在这里添加更多上下文信息，如：
-        # - 车辆速度（需要订阅相应话题）
-        # - 驾驶员注意力水平（需要相应传感器）
-        # - 道路曲率（需要地图信息）
-        # - 紧急情况检测（需要相应算法）
-        
         return context
     
     def blend_control_signals(self, human_control, machine_control, alpha,time_now):
@@ -443,18 +522,22 @@ class G29Controller:
         blended_control.steer = alpha * human_control.steer + (1.0 - alpha) * machine_control.steer
         # blended_control.throttle = alpha * human_control.throttle + (1.0 - alpha) * machine_control.throttle
         # blended_control.brake = alpha * human_control.brake + (1.0 - alpha) * machine_control.brake
-        if human_control.brake > machine_control.brake + 0.01:
-            blended_control.brake = human_control.brake
-        else:
+        if self.authority_allocator.current_strategy.name == 'HumanMachineCollaboration':
             blended_control.brake = machine_control.brake
-
-        if human_control.throttle > machine_control.throttle + 0.01:
-            blended_control.throttle = human_control.throttle
-            blended_control.brake = 0
-        elif human_control.brake > machine_control.brake + 0.01:
-            blended_control.throttle = 0
-        else:
             blended_control.throttle = machine_control.throttle
+        else:
+            if human_control.brake > machine_control.brake + 0.01:
+                blended_control.brake = human_control.brake
+            else:
+                blended_control.brake = machine_control.brake
+
+            if human_control.throttle > machine_control.throttle + 0.01:
+                blended_control.throttle = human_control.throttle
+                blended_control.brake = 0
+            elif human_control.brake > machine_control.brake + 0.01:
+                blended_control.throttle = 0
+            else:
+                blended_control.throttle = machine_control.throttle
         
         # 布尔值采用人类优先策略
         blended_control.hand_brake = human_control.hand_brake or machine_control.hand_brake

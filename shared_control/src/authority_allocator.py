@@ -496,6 +496,50 @@ class AdaptiveStrategy(AuthorityAllocationStrategy):
         return smoothed_alpha
 
 
+
+class SafetyCriticalStrategy(AuthorityAllocationStrategy):
+    """基于安全关键性的权限分配策略
+    
+    根据碰撞时间 (TTC) 和横向加速度动态调整权限分配
+    表达式为: alpha = 1 - (k1 / t_TTC) * (1 - e^(-k2 * |a_y|))
+    """
+    
+    def __init__(self, k1: float =2, k2: float = 2.5):
+        """初始化基于安全关键性的策略
+        
+        Args:
+            k1 (float): 可调参数1，默认值为2
+            k2 (float): 可调参数2，默认值为2.5
+        """
+        super().__init__("SafetyCritical")
+        self.k1 = k1
+        self.k2 = k2
+    
+    def compute_alpha(self, context: Dict[str, Any]) -> float:
+        """基于TTC和横向加速度计算alpha值
+        
+        Args:
+            context (Dict[str, Any]): 包含't_ttc'和'ay'的上下文
+            
+        Returns:
+            float: 计算得到的alpha值
+        """
+        t_ttc = context.get('t_ttc', float('inf'))
+        ay = context.get('ay', 0.0)
+        
+        # 处理t_ttc的边界情况
+        if t_ttc <= 1e-6: # 避免除以零或非常小的值
+            return 0.0  # 紧急情况下，完全由机器控制
+        
+        # 计算alpha值
+        factor = self.k1 / t_ttc
+        exponent = -self.k2 * abs(ay)
+        alpha = 1.0 - factor * (1.0 - np.exp(exponent))
+        
+        # 确保alpha在[0, 1]范围内
+        return max(0.0, min(1.0, alpha))
+
+
 class AuthorityAllocator:
     """权限分配器
     
@@ -527,6 +571,7 @@ class AuthorityAllocator:
         self.register_strategy(SteeringBasedStrategy())
         self.register_strategy(EmergencyOverrideStrategy())
         self.register_strategy(AdaptiveStrategy())
+        self.register_strategy(SafetyCriticalStrategy())
         self.register_strategy(FlexibleTransitionStrategy())
         
         # self.register_strategy(FlexibleTransitionStrategy(3.2,4.8))
