@@ -5,7 +5,7 @@ import numpy as np
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 from carla_msgs.msg import CarlaEgoVehicleControl
-from std_msgs.msg import Float64, String
+from std_msgs.msg import Float64, String, Int32
 
 
 class AuthorityAllocationStrategy(ABC):
@@ -291,6 +291,8 @@ class HumanMachineCollaborationStrategy(AuthorityAllocationStrategy):
         self.C = 0
         self.alpha = 0
         self.v_exp = 0
+        self.HM_state = 0
+        self.hm_state_pub = rospy.Publisher('/HM_state', Int32, queue_size=1)
        
     def reset_transition(self):
         """重置权限移交过程
@@ -421,12 +423,17 @@ class HumanMachineCollaborationStrategy(AuthorityAllocationStrategy):
     def compute_alpha_based_on_QS(self,Q,QC,S,q1=0.3,s1=1,eta=5,epsilon=9.85,n1=0.5/50,n2=2/50):
         if Q >= q1 and S <s1:
             self.alpha = 1 / (1+ np.exp(eta - epsilon * QC))
+            self.HM_state = 1
         elif Q >= q1 and S >=s1:
             self.alpha = 1 / (1+ np.exp(eta - epsilon * QC * S))
+            self.HM_state = 3
         elif Q < q1 and S < s1:
             self.v_exp = self.v_exp - n1*(1 - QC)
+            self.HM_state = 2
         else:
             self.v_exp = self.v_exp - n2*(1 - QC)
+            self.HM_state = 4
+        self.hm_state_pub.publish(self.HM_state)
         return self.alpha
 
 

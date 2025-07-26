@@ -76,6 +76,7 @@ from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import Bool
 from std_msgs.msg import String
 from std_msgs.msg import Float64
+from std_msgs.msg import Int32
 
 # ==============================================================================
 # -- World ---------------------------------------------------------------------
@@ -343,6 +344,7 @@ class HUD(object):
         self.strategy_command = None
         self.alpha_value = 0.0
         self.show_alpha_progress = False
+        self.hm_state = 0
 
         self.vehicle_status_subscriber = node.new_subscription(
             CarlaEgoVehicleStatus, "/carla/{}/vehicle_status".format(self.role_name),
@@ -385,6 +387,12 @@ class HUD(object):
             CarlaStatus,
             "/carla/status",
             self.carla_status_updated,
+            qos_profile=10)
+
+        self.hm_state_subscriber = node.new_subscription(
+            Int32,
+            '/HM_state',
+            self.hm_state_updated,
             qos_profile=10)
 
     def tick(self, clock):
@@ -439,6 +447,13 @@ class HUD(object):
             data.pose.pose.orientation.y,
             data.pose.pose.orientation.z])
         self.yaw = math.degrees(yaw)
+        self.update_info_text()
+
+    def hm_state_updated(self, data):
+        """
+        Callback on hm_state updates
+        """
+        self.hm_state = data.data
         self.update_info_text()
 
     def update_info_text(self):
@@ -525,27 +540,35 @@ class HUD(object):
             progress_bar_width = self.dim[0] - 40  # 留出边距
             progress_bar_x = 20
             progress_bar_y = 10
-            
-            # 绘制进度条背景
-            background_rect = pygame.Rect(progress_bar_x, progress_bar_y, progress_bar_width, progress_bar_height)
-            pygame.draw.rect(display, (50, 50, 50), background_rect)
-            pygame.draw.rect(display, (255, 255, 255), background_rect, 2)
-            
-            # 绘制进度条填充
-            fill_width = int(self.alpha_value * progress_bar_width)
-            if fill_width > 0:
-                fill_rect = pygame.Rect(progress_bar_x, progress_bar_y, fill_width, progress_bar_height)
-                if self.alpha_value>0.97:
-                    pygame.draw.rect(display, (220, 0, 0), fill_rect)
-                else:
-                    pygame.draw.rect(display, (224, 224, 224), fill_rect)
-            
-            # 绘制进度条文本
-            progress_text = "Alpha Progress: {:.2f}".format(self.alpha_value)
-            text_surface = self._font_mono.render(progress_text, True, (255, 255, 255))
-            text_x = progress_bar_x + progress_bar_width + 10
-            text_y = progress_bar_y + 3
-            display.blit(text_surface, (text_x, text_y))
+
+            color_map = {
+                1: (255, 250, 196),
+                2: (255, 240, 192),
+                3: (255, 226, 191),
+                4: (255, 213, 193)
+            }
+            color = color_map.get(self.hm_state, None)
+
+            if color:
+                # 绘制进度条背景 (透明)
+                background_rect = pygame.Rect(progress_bar_x, progress_bar_y, progress_bar_width, progress_bar_height)
+                
+                # 绘制进度条边框
+                pygame.draw.rect(display, color, background_rect, 2)
+                
+                # 绘制进度条填充
+                fill_width = int(self.alpha_value * progress_bar_width)
+                if fill_width > 0:
+                    fill_rect = pygame.Rect(progress_bar_x, progress_bar_y, fill_width, progress_bar_height)
+                    pygame.draw.rect(display, color, fill_rect)
+
+                # 绘制HM_state文本
+                hm_state_text = "HM_state: {}".format(self.hm_state)
+                text_surface = self._font_mono.render(hm_state_text, True, color)
+                text_rect = text_surface.get_rect()
+                text_rect.centerx = background_rect.centerx
+                text_rect.top = background_rect.bottom + 5
+                display.blit(text_surface, text_rect)
         
         if self._show_info:
             info_surface = pygame.Surface((220, self.dim[1]))

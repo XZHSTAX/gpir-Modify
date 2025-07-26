@@ -71,6 +71,11 @@ class G29Controller:
             "/human_control_input", CarlaEgoVehicleControl, queue_size=10
         )
 
+        # 混合控制输入发布器
+        self.mix_control_pub = rospy.Publisher(
+            "/mixControl", CarlaEgoVehicleControl, queue_size=10
+        )
+
         self.machine_control_pub = rospy.Publisher(
             machine_control_topic_out, CarlaEgoVehicleControl, queue_size=10
         )
@@ -466,7 +471,7 @@ class G29Controller:
         
         return blended_control
 
-    def _apply_safety_filter(self, human_control, v_exp, final_control,dt = 0.02,k_delta=np.pi/6):
+    def _apply_safety_filter(self, human_control, v_exp, mix_control,dt = 0.02,k_delta=np.pi/6):
         """应用安全过滤器。
 
         根据人类输入和车辆状态，对控制指令应用安全过滤器。
@@ -497,7 +502,7 @@ class G29Controller:
         # 准备 cbf_filter 的输入
         # 假设轴距为 2.875 米
         wheelbase = 2.875
-        omega_mix = v_exp * np.tan(final_control.steer*k_delta) / wheelbase # 注意final_control.steer的输入值是[-1,1]，需要转换为前轮转角区间[-30,30]，即[-pi/6,pi/6]
+        omega_mix = v_exp * np.tan(mix_control.steer*k_delta) / wheelbase # 注意final_control.steer的输入值是[-1,1]，需要转换为前轮转角区间[-30,30]，即[-pi/6,pi/6]
         u_star = np.array([v_exp, omega_mix])
         p_ego = self.ego_vehicle_state
         p_other = self.other_vehicles_state
@@ -510,27 +515,27 @@ class G29Controller:
             # 更新 final_control
             v_safe_control = self.speed_controller.control(v_safe - self.ego_vehicle_speed, dt)
             if v_safe_control >= 0:
-                final_control.throttle = min(v_safe_control, 1.0)
-                final_control.brake = 0
+                mix_control.throttle = min(v_safe_control, 1.0)
+                mix_control.brake = 0
             else:
-                final_control.throttle = 0
-                final_control.brake = min(abs(v_safe_control) / 8, 1.0)
+                mix_control.throttle = 0
+                mix_control.brake = min(abs(v_safe_control) / 8, 1.0)
 
             # 根据安全角速度更新转向
             # steer = arctan(omega * L / v)
             # 当v很小时，这个计算不稳定，需要处理
             if v_safe > 0.1:
                 safe_steer = np.arctan(omega_safe * wheelbase / v_safe) /k_delta # 注意需要将前轮转角区间[-30,30]转换为[-1,1]
-                final_control.steer = np.clip(safe_steer, -1.0, 1.0)
+                mix_control.steer = np.clip(safe_steer, -1.0, 1.0)
             else:
                 # 速度很低时，保持原转向或置零
-                final_control.steer = 0.0
+                mix_control.steer = 0.0
 
             rospy.loginfo(f"Original u*: {u_star}, Safe u: {u_safe}")
         else:
             rospy.loginfo("No other vehicles, skipping safety filter.")
         
-        return v_exp, final_control
+        return v_exp, mix_control
     
     def process_analog_inputs(self):
         """处理模拟输入（方向盘、踏板）并发布共享控制命令
@@ -550,18 +555,23 @@ class G29Controller:
         
         # 如果收到了机器控制信号，并且人类的权限小于0.99
         if self.machine_control_received and self.alpha < 0.99:
-            final_control = self.blend_control_signals(
+            mix_control = self.blend_control_signals(
                 human_control, self.latest_machine_control, self.alpha,time_now
             )
-            rospy.logdebug(f"Blended control - Steer: {final_control.steer:.2f}, "
-                          f"Throttle: {final_control.throttle:.2f}, Brake: {final_control.brake:.2f}")
+            self.mix_control_pub.publish(mix_control)
+            rospy.logdebug(f"Blended control - Steer: {mix_control.steer:.2f}, "
+                          f"Throttle: {mix_control.throttle:.2f}, Brake: {mix_control.brake:.2f}")
             # 安全过滤器
             v_exp = self.latest_ackermann_cmd.speed
             if self.authority_allocator.current_strategy.name == 'HumanMachineCollaboration':
-                v_exp, final_control = self._apply_safety_filter(human_control, v_exp, final_control)
+                v_exp,final_control  = self._apply_safety_filter(human_control, v_exp, mix_control)
+            else:
+                final_control = mix_control
+            # final_control = mix_control
         else:
             # 如果没有机器控制信号，只使用人类控制
             final_control = human_control
+            self.mix_control_pub.publish(final_control)
             rospy.logdebug("Using human control only (no machine signal)")
         
         # 发布人类控制输入信号
