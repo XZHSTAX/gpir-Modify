@@ -419,7 +419,6 @@ class HumanMachineCollaborationStrategy(AuthorityAllocationStrategy):
         S = term1 + term2 + term3
         return S
 
-    # TODO: 这里的参数还没设置好；关于速度的反馈也没设置好，以及关于状态的记录也没设置好
     def compute_alpha_based_on_QS(self,Q,QC,S,q1=0.3,s1=1,eta=5,epsilon=9.85,n1=0.5/50,n2=2/50):
         if Q >= q1 and S <s1:
             self.alpha = 1 / (1+ np.exp(eta - epsilon * QC))
