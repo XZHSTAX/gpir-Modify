@@ -89,7 +89,7 @@
     <arg name="ego_vehicle_name" value="$(arg role_name)"/>
   </include>
 
-  <arg name="record_file_name" default="TEST-HM-NewPID"/>
+  <arg name="record_file_name" default="TEST_LPF_3"/>
 
   <node pkg="rosbag" type="record" name="rosbag_record" output="screen"
         args="-o $(find planning_core)/../../../rosrecord2/Exp-main/$(arg record_file_name)
@@ -108,6 +108,7 @@
               /shared_control/strategy_command
               /shared_control/alpha
               /HM_state
-              /mixControl" />
+              /mixControl
+              /plot_data" />
   
 </launch>

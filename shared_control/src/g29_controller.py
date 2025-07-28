@@ -17,6 +17,7 @@ from TwoDimTTC import TTC
 from authority_allocator import AuthorityAllocator
 from safety_filter import cbf_filter
 from pid_controller import PIDController
+from filters import LowPassFilterStream
 
 class G29Controller:
     """Logitech G29方向盘控制器
@@ -127,6 +128,13 @@ class G29Controller:
         self.machine_control_received = False
         self.external_torque = 0.0
         self.machine_torque = 0.0
+
+        # 初始化低通滤波器
+        # 假设采样率为100Hz，截止频率为5Hz
+        sample_rate = 50  # Hz
+        cutoff_freq = 3  # Hz
+        self.external_torque_filter = LowPassFilterStream(cutoff_freq,sample_rate)
+        self.machine_torque_filter = LowPassFilterStream(cutoff_freq,sample_rate)
         self.latest_ackermann_cmd = AckermannDrive()
         self.ego_vehicle_state = np.zeros(3)  # [x, y, psi]
         self.other_vehicles_state = np.empty((0, 3))  # [x, y, psi]
@@ -402,7 +410,7 @@ class G29Controller:
         Args:
             msg (Float64): 外部扭矩消息
         """
-        self.external_torque = msg.data
+        self.external_torque = self.external_torque_filter.filter(msg.data)
 
     def machine_torque_callback(self, msg):
         """机器扭矩回调函数
@@ -410,7 +418,7 @@ class G29Controller:
         Args:
             msg (Float64): 机器扭矩消息
         """
-        self.machine_torque = msg.data
+        self.machine_torque = self.machine_torque_filter.filter(msg.data)
 
     def goal_callback(self, msg):
         """目标位置回调函数
@@ -621,7 +629,7 @@ class G29Controller:
                 # 速度很低时，保持原转向或置零
                 mix_control.steer = 0.0
 
-            rospy.loginfo(f"Original u*: {u_star}, Safe u: {u_safe}")
+            # rospy.loginfo(f"Original u*: {u_star}, Safe u: {u_safe}")
         else:
             rospy.loginfo("No other vehicles, skipping safety filter.")
         
@@ -688,7 +696,7 @@ class G29Controller:
         ff_msg.position = steering_position
         ff_msg.torque = 0.8
         
-        # self.force_feedback_pub.publish(ff_msg)
+        self.force_feedback_pub.publish(ff_msg)
     
     def update(self):
         """更新G29输入处理

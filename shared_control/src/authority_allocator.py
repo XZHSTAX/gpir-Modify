@@ -6,6 +6,8 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
 from carla_msgs.msg import CarlaEgoVehicleControl
 from std_msgs.msg import Float64, String, Int32
+from shared_control.msg import HMIPlotData
+from filters import LowPassFilterStream
 
 
 class AuthorityAllocationStrategy(ABC):
@@ -293,6 +295,8 @@ class HumanMachineCollaborationStrategy(AuthorityAllocationStrategy):
         self.v_exp = 0
         self.HM_state = 0
         self.hm_state_pub = rospy.Publisher('/HM_state', Int32, queue_size=1)
+        self.plot_data_pub = rospy.Publisher('/plot_data', HMIPlotData, queue_size=1)
+        self.s_filter = LowPassFilterStream(cutoff=3, fs=50)
        
     def reset_transition(self):
         """重置权限移交过程
@@ -340,8 +344,17 @@ class HumanMachineCollaborationStrategy(AuthorityAllocationStrategy):
         QT = self.compute_QT(T,Tt)
 
         Q = self.compute_Q(QT,QC)
-        S = self.compute_S(T,Tt,np.sign(T),np.sign(Tt),Pr,Pa)
-        # rospy.loginfo(f"alpha={self.alpha:.3f}, Q={Q:.3f},QC={QC:.3f},QT={QT:.3f},S={S:.3f},C={self.C:.3f}")
+        S_raw = self.compute_S(T,Tt,np.sign(T),np.sign(Tt),Pr,Pa)
+        S = self.s_filter.filter(S_raw)
+
+        plot_data = HMIPlotData()
+        plot_data.qc = QC
+        plot_data.qt = QT
+        plot_data.q = Q
+        plot_data.s = S
+        self.plot_data_pub.publish(plot_data)
+
+        # rospy.loginfo(f"alpha={self.alpha:.3f}, Q={Q:.3f},QC={QC:.3f},QT={QT:.3f},S={S:.3f},C={self.C:.3f},T={T:.3f},Tt={Tt:.3f},Pr={Pr:.3f},Pa={Pa:.3f},v_exp={self.v_exp:.3f}")
 
 
         alpha = self.compute_alpha_based_on_QS(Q,QC,S)
@@ -354,7 +367,7 @@ class HumanMachineCollaborationStrategy(AuthorityAllocationStrategy):
 
         self.alpha = alpha
         
-        rospy.logdebug(f"Flexible transition: t={time_diff:.2f}s, alpha={alpha:.3f}")
+        rospy.logdebug(f"HM transition: t={time_diff:.2f}s, alpha={alpha:.3f}")
         
         return self.alpha
     
@@ -396,7 +409,7 @@ class HumanMachineCollaborationStrategy(AuthorityAllocationStrategy):
         # rospy.loginfo(f"Q_T={Q_T:.3f},T={T:.3f},Tt={Tt:.3f},term1={term1:.3f},term2={term2:.3f}")
         return Q_T
 
-    def compute_S(self,Td,Ta,Dd,Da,Pr,Pa,omega1=1,omega2=1,omega3=20):
+    def compute_S(self,Td,Ta,Dd,Da,Pr,Pa,omega1=1,omega2=1,omega3=1):
         """计算S值
 
         Args:
@@ -419,7 +432,7 @@ class HumanMachineCollaborationStrategy(AuthorityAllocationStrategy):
         S = term1 + term2 + term3
         return S
 
-    def compute_alpha_based_on_QS(self,Q,QC,S,q1=0.3,s1=1,eta=5,epsilon=9.85,n1=0.5/50,n2=2/50):
+    def compute_alpha_based_on_QS(self,Q,QC,S,q1=0.3,s1=2,eta=5,epsilon=9.85,n1=0.5/50,n2=2/50):
         if Q >= q1 and S <s1:
             self.alpha = 1 / (1+ np.exp(eta - epsilon * QC))
             self.HM_state = 1
