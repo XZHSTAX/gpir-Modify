@@ -69,6 +69,9 @@ class PIDController {
 double current_speed = 0.0;
 double target_speed = 0.0, target_acc = 0.0, target_steer = 0.0;
 bool control_started = false;  // 标志变量，表示是否已经开始控制
+double last_throttle = 0.0;
+double last_brake = 0.0;
+double alpha = 0.2;
 
 void TargetCallBack(const ackermann_msgs::AckermannDrive& msg) {
   // 只有在第一次接收到speed > 0的消息时才开始控制
@@ -131,11 +134,18 @@ int main(int argc, char* argv[]) {
       double acc = speed_controller.Control(target_speed - current_speed, 0.02);
 
       if (acc >= 0) {
-        control_cmd.throttle = std::min(acc / 4.0, 1.0);
+
+        control_cmd.throttle = alpha * std::min(acc / 4.0, 1.0) + (1 - alpha) * last_throttle;
         control_cmd.brake = 0.0;
+        last_throttle = control_cmd.throttle;
       } else {
         control_cmd.throttle = 0.0;
-        control_cmd.brake = std::min(std::fabs(acc) / 8.0, 1.0);
+        if(std::fabs(acc) /15 > 0.1){
+          control_cmd.brake = (1 - alpha) * std::min(std::fabs(acc) / 15.0, 1.0) +  alpha* last_brake;
+        }else{
+          control_cmd.brake = 0.0;
+          control_cmd.throttle = 0.0;
+        }
       }
 
       if (target_speed == 0.0) {

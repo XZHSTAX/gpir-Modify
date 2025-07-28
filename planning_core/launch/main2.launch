@@ -55,6 +55,8 @@
   <arg name="authority_strategy" default="ConstantAlpha" />
   <arg name="transition_delay" default="5.0" />
   <arg name="next_strategy_name" default="HumanMachineCollaboration" />
+  <!-- <arg name="next_strategy_name" default="FlexibleTransition" /> -->
+
   <include file="$(find shared_control)/launch/g29_controller.launch">
     <arg name="ego_vehicle_name" value="$(arg role_name)"/>
     <arg name="authority_strategy" value="$(arg authority_strategy)" />
@@ -87,7 +89,7 @@
     <arg name="ego_vehicle_name" value="$(arg role_name)"/>
   </include>
 
-  <arg name="record_file_name" default="TEST"/>
+  <arg name="record_file_name" default="TEST-HM-NewPID"/>
 
   <node pkg="rosbag" type="record" name="rosbag_record" output="screen"
         args="-o $(find planning_core)/../../../rosrecord2/Exp-main/$(arg record_file_name)

@@ -2,7 +2,7 @@ import osqp
 import numpy as np
 from scipy import sparse
 
-def cbf_filter(u_star, p_ego, p_other,alpha_gamma = 1):
+def cbf_filter(u_star, p_ego, p_other,alpha_gamma = 10):
     """安全过滤器，基于控制障碍函数（CBF）确保安全。
 
     Args:

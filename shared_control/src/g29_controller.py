@@ -132,7 +132,10 @@ class G29Controller:
         self.other_vehicles_state = np.empty((0, 3))  # [x, y, psi]
         self.ego_vehicle_speed = 0.0
         self.ego_vehicle_acc_lat_lon = [0,0]
-        self.speed_controller = PIDController(3.5, 0.15, 0.4)
+        self.speed_controller = PIDController(1.5, 0, 0.05)
+        self.speed_controller_alpha = 0.2
+
+        self.final_control = CarlaEgoVehicleControl()
 
         # For TTC calculation
         self.min_ttc = np.inf
@@ -598,11 +601,15 @@ class G29Controller:
             # 更新 final_control
             v_safe_control = self.speed_controller.control(v_safe - self.ego_vehicle_speed, dt)
             if v_safe_control >= 0:
-                mix_control.throttle = min(v_safe_control, 1.0)
+                mix_control.throttle = self.speed_controller_alpha * min(v_safe_control / 4.0, 1.0) + (1 - self.speed_controller_alpha) * self.final_control.throttle
                 mix_control.brake = 0
             else:
-                mix_control.throttle = 0
-                mix_control.brake = min(abs(v_safe_control) / 8, 1.0)
+                if(abs(v_safe_control)/15 > 0.1):
+                    mix_control.throttle = 0
+                    mix_control.brake = (1 - self.speed_controller_alpha) * min(abs(v_safe_control) / 15, 1.0) + self.speed_controller_alpha * self.final_control.brake
+                else:
+                    mix_control.throttle = 0
+                    mix_control.brake = 0
 
             # 根据安全角速度更新转向
             # steer = arctan(omega * L / v)
@@ -647,27 +654,27 @@ class G29Controller:
             # 安全过滤器
             v_exp = self.latest_ackermann_cmd.speed
             if self.authority_allocator.current_strategy.name == 'HumanMachineCollaboration':
-                v_exp,final_control  = self._apply_safety_filter(human_control, v_exp, mix_control)
+                v_exp,self.final_control  = self._apply_safety_filter(human_control, v_exp, mix_control)
             else:
-                final_control = mix_control
+                self.final_control = mix_control
             # final_control = mix_control
         else:
             # 如果没有机器控制信号，只使用人类控制
-            final_control = human_control
-            self.mix_control_pub.publish(final_control)
+            self.final_control = human_control
+            self.mix_control_pub.publish(self.final_control)
             rospy.logdebug("Using human control only (no machine signal)")
         
         # 发布人类控制输入信号
         self.human_control_pub.publish(human_control)
         
         # 发布最终控制命令
-        self.vehicle_control_pub.publish(final_control)
+        self.vehicle_control_pub.publish(self.final_control)
 
         self.latest_machine_control.header.stamp = time_now
         self.machine_control_pub.publish(self.latest_machine_control)
         
         # 发布力反馈消息
-        self.publish_force_feedback(final_control.steer)
+        self.publish_force_feedback(self.final_control.steer)
     
     def publish_force_feedback(self, steering_position):
         """发布力反馈消息
@@ -681,7 +688,7 @@ class G29Controller:
         ff_msg.position = steering_position
         ff_msg.torque = 0.8
         
-        self.force_feedback_pub.publish(ff_msg)
+        # self.force_feedback_pub.publish(ff_msg)
     
     def update(self):
         """更新G29输入处理
