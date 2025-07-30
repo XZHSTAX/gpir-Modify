@@ -89,7 +89,7 @@
     <arg name="ego_vehicle_name" value="$(arg role_name)"/>
   </include>
 
-  <arg name="record_file_name" default="TEST_LPF_3"/>
+  <arg name="record_file_name" default="Exp_RightTurn_Test"/>
 
   <node pkg="rosbag" type="record" name="rosbag_record" output="screen"
         args="-o $(find planning_core)/../../../rosrecord2/Exp-main/$(arg record_file_name)

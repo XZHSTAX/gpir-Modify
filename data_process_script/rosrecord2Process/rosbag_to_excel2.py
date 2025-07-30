@@ -265,7 +265,7 @@ def process_rosbag(bag_path, output_path):
 
                 elif topic == '/plot_data':
                     # HM_state数据
-                    data = {'qc': msg.qc, 'qt': msg.qt, 'q': msg.q, 's': msg.s, 'timestamp': timestamp}
+                    data = {'qc': msg.qc, 'qt': msg.qt, 'q': msg.q, 's': msg.s,'deltaT': msg.deltaT,'deltaD': msg.deltaD,'deltaP': msg.deltaP, 'timestamp': timestamp}
                     sheet_data[topic_mapping[topic]].append(data)
         
         # 处理车辆状态和里程计数据的合并

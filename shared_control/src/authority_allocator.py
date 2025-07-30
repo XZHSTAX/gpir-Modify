@@ -344,7 +344,7 @@ class HumanMachineCollaborationStrategy(AuthorityAllocationStrategy):
         QT = self.compute_QT(T,Tt)
 
         Q = self.compute_Q(QT,QC)
-        S_raw = self.compute_S(T,Tt,np.sign(T),np.sign(Tt),Pr,Pa)
+        S_raw,DeltaT,DeltaD,DeltaP = self.compute_S(T,Tt,np.sign(T),np.sign(Tt),Pr,Pa)
         S = self.s_filter.filter(S_raw)
 
         plot_data = HMIPlotData()
@@ -352,6 +352,9 @@ class HumanMachineCollaborationStrategy(AuthorityAllocationStrategy):
         plot_data.qt = QT
         plot_data.q = Q
         plot_data.s = S
+        plot_data.deltaT = DeltaT
+        plot_data.deltaD = DeltaD
+        plot_data.deltaP = DeltaP
         self.plot_data_pub.publish(plot_data)
 
         # rospy.loginfo(f"alpha={self.alpha:.3f}, Q={Q:.3f},QC={QC:.3f},QT={QT:.3f},S={S:.3f},C={self.C:.3f},T={T:.3f},Tt={Tt:.3f},Pr={Pr:.3f},Pa={Pa:.3f},v_exp={self.v_exp:.3f}")
@@ -396,7 +399,7 @@ class HumanMachineCollaborationStrategy(AuthorityAllocationStrategy):
         self.C = self.C + (S_gmax - S_g) * S_h* C_k
         return self.C
 
-    def compute_QT(self,T,Tt,alpha_a = 12.5,alpha_b = 0.5,Tmax=15,Tmin=-15):
+    def compute_QT(self,T,Tt,alpha_a = 12.5,alpha_b = 0.5,Tmax=3,Tmin=-3):
         """计算Q_T值
         此处输入的T和Tt为归一化之前的力矩
         """
@@ -409,7 +412,7 @@ class HumanMachineCollaborationStrategy(AuthorityAllocationStrategy):
         # rospy.loginfo(f"Q_T={Q_T:.3f},T={T:.3f},Tt={Tt:.3f},term1={term1:.3f},term2={term2:.3f}")
         return Q_T
 
-    def compute_S(self,Td,Ta,Dd,Da,Pr,Pa,omega1=1,omega2=1,omega3=1):
+    def compute_S(self,Td,Ta,Dd,Da,Pr,Pa,omega1=1,omega2=0.2,omega3=2):
         """计算S值
 
         Args:
@@ -426,18 +429,18 @@ class HumanMachineCollaborationStrategy(AuthorityAllocationStrategy):
         Returns:
             float: 计算得到的S值
         """
-        term1 = omega1 * abs(abs(Td) - abs(Ta))
+        term1 = omega1 * abs(Td - Ta)
         term2 = omega2 * abs(Dd - Da)
         term3 = omega3 * abs(Pr - Pa)
         S = term1 + term2 + term3
-        return S
+        return S,term1,term2,term3
 
     def compute_alpha_based_on_QS(self,Q,QC,S,q1=0.3,s1=2,eta=5,epsilon=9.85,n1=0.5/50,n2=2/50):
         if Q >= q1 and S <s1:
             self.alpha = 1 / (1+ np.exp(eta - epsilon * QC))
             self.HM_state = 1
-        elif Q >= q1 and S >=s1:
-            self.alpha = 1 / (1+ np.exp(eta - epsilon * QC * S))
+        elif Q >= q1 and S >=s1+2:
+            self.alpha = 1 / (1+ np.exp(eta - epsilon * QC * 1.5))
             self.HM_state = 3
         elif Q < q1 and S < s1:
             self.v_exp = self.v_exp - n1*(1 - QC)
