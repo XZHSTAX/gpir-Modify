@@ -13,6 +13,7 @@
 #include "planning_core/simulation/carla/ego_info/carla_ego_info.h"
 #include "planning_core/simulation/carla/mock_perception/carla_mock_perception.h"
 #include "planning_core/simulation/controller/mpc_controller.h"
+#include "planning_core/simulation/controller/pure_pursuit_controller.h"
 #include "planning_core/simulation/simulator_adapter.h"
 
 namespace planning {
@@ -45,6 +46,7 @@ class CarlaAdapter final : public SimulatorAdapter {
 
   common::Trajectory trajectory_;
   MpcController mpc_controller_;
+  PurePursuitController pure_pursuit_controller_;
 };
 }  // namespace simulation
 }  // namespace planning

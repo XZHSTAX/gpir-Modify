@@ -666,6 +666,8 @@ class G29Controller:
             else:
                 self.final_control = mix_control
             # final_control = mix_control
+            # if self.authority_allocator.current_strategy.name == 'FlexibleTransition':
+            #     self.final_control = self.latest_machine_control
         else:
             # 如果没有机器控制信号，只使用人类控制
             self.final_control = human_control

@@ -64,8 +64,13 @@ void CarlaAdapter::SetTrajectory(const common::Trajectory& trajectory) {
   CHECK_GT(wheel_base_, 2);
   mpc_controller_.set_wheel_base(wheel_base_);
   carla_ego_info_.UpdateEgoState(&ego_state);
-  mpc_controller_.CalculateAckermannDrive(ego_state, trajectory,
-                                          &ackermann_drive);
+  if (mpc_controller_.CalculateAckermannDrive(ego_state, trajectory,
+                                          &ackermann_drive)){
+  pure_pursuit_controller_.set_wheel_base(wheel_base_);
+  pure_pursuit_controller_.CalculateAckermannDrive(ego_state, trajectory,
+                                                   &ackermann_drive);
+                                          }
+
   control_cmd_pub_.publish(ackermann_drive);
 }
 
