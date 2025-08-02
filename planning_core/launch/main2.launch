@@ -54,8 +54,9 @@
   <!-- 启动G29控制器 -->
   <arg name="authority_strategy" default="ConstantAlpha" />
   <arg name="transition_delay" default="5.0" />
-  <arg name="next_strategy_name" default="HumanMachineCollaboration" />
+  <!-- <arg name="next_strategy_name" default="HumanMachineCollaboration" /> -->
   <!-- <arg name="next_strategy_name" default="FlexibleTransition" /> -->
+  <arg name="next_strategy_name" default="SafetyCritical" />
 
   <include file="$(find shared_control)/launch/g29_controller.launch">
     <arg name="ego_vehicle_name" value="$(arg role_name)"/>
@@ -89,10 +90,10 @@
     <arg name="ego_vehicle_name" value="$(arg role_name)"/>
   </include>
 
-  <arg name="record_file_name" default="Exp_RightTurn_Test"/>
+  <arg name="record_file_name" default="Exp_TEST"/>
 
   <node pkg="rosbag" type="record" name="rosbag_record" output="screen"
-        args="-o $(find planning_core)/../../../rosrecord2/Exp-main/$(arg record_file_name)
+        args="-o $(find planning_core)/../../../rosrecord2/Exp-TEST/$(arg record_file_name)
               /human_control_input
               /carla/$(arg role_name)/vehicle_control_cmd
               /carla/$(arg role_name)/ackermann_cmd

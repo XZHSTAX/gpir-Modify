@@ -281,7 +281,7 @@ def main():
     """
     parser = argparse.ArgumentParser(description='excel 预处理')
     parser.add_argument('--Exp_setting', default='Exp', help='实验设置，默认为Exp1')
-    parser.add_argument('--method_setting', default='main', help='方法设置，默认为main')
+    parser.add_argument('--method_setting', default='Compare2', help='方法设置，默认为main')
   
     args = parser.parse_args()
 
@@ -317,7 +317,7 @@ def main():
     for xlsx_file in xlsx_files:
         output_file = output_dir / xlsx_file.name
         if 'Compare1' ==  args.method_setting:
-            if args.Exp_setting == 'Exp1':
+            if args.Exp_setting == 'Exp':
                 duration = 7
             elif args.Exp_setting == 'Exp2':
                 duration = 3

@@ -339,7 +339,7 @@ def main():
 
     parser = argparse.ArgumentParser(description='ROSBag数据提取工具')
     parser.add_argument('--Exp_setting', default='Exp', help='实验设置，默认为Exp1')
-    parser.add_argument('--method_setting', default='main', help='方法设置，默认为main')
+    parser.add_argument('--method_setting', default='Compare2', help='方法设置，默认为main')
   
     args = parser.parse_args()
 
